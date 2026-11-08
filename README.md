@@ -59,6 +59,13 @@ Pricemori is deliberately manual. You decide what is worth tracking. A purchase 
   <img src="Screenshots/journal-dark.png" width="220" alt="Journal in dark mode">
 </p>
 
+## Links
+
+- **Website:** https://dronnn.github.io/pricemori/
+- **Support:** https://dronnn.github.io/pricemori/support.html
+- **Privacy policy:** https://dronnn.github.io/pricemori/privacy.html
+- **Issues:** https://github.com/Dronnn/pricemori/issues
+
 ## Privacy
 
 Pricemori has no accounts, analytics, advertising, or network requests. There is no server and no shared price database.
