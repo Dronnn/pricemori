@@ -1,0 +1,19 @@
+.DS_Store
+
+# Local workspace state
+xcuserdata/
+*.xcuserstate
+
+# Build products
+DerivedData/
+build/
+*.xcresult
+
+# Local design references and project notes
+docs/
+logs/
+.refs/
+
+# Swift package caches, if added later
+.swiftpm/
+.build/
