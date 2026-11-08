@@ -83,6 +83,8 @@ enum AppLanguage: String, CaseIterable, Identifiable, Codable, Sendable {
 }
 
 enum L10n {
+    nonisolated(unsafe) private static let bundleCache = NSCache<NSString, Bundle>()
+
     nonisolated static var language: AppLanguage { AppLanguage.selected }
 
     nonisolated static var locale: Locale { language.locale }
@@ -94,9 +96,16 @@ enum L10n {
         guard !language.isSystem else {
             return NSLocalizedString(key, comment: "")
         }
-        guard let path = Bundle.main.path(forResource: language.rawValue, ofType: "lproj"),
-              let bundle = Bundle(path: path)
-        else {
+
+        let cacheKey = language.rawValue as NSString
+        let bundle: Bundle
+        if let cached = bundleCache.object(forKey: cacheKey) {
+            bundle = cached
+        } else if let path = Bundle.main.path(forResource: language.rawValue, ofType: "lproj"),
+                  let loaded = Bundle(path: path) {
+            bundleCache.setObject(loaded, forKey: cacheKey)
+            bundle = loaded
+        } else {
             return key
         }
         return bundle.localizedString(forKey: key, value: key, table: nil)
