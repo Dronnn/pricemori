@@ -4,7 +4,7 @@ final class DonationPurchaseUITests: XCTestCase {
     @MainActor
     func testDonationPurchaseShowsThankYou() throws {
         let app = XCUIApplication()
-        app.launchArguments = ["-in-memory", "-seed-sample"]
+        app.launchArguments = ["-in-memory", "-seed-sample", "-reset-language"]
         app.launch()
 
         app.buttons["Support Pricemori"].tap()

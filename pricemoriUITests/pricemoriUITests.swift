@@ -8,7 +8,7 @@ final class PricemoriUITests: XCTestCase {
     @MainActor
     func testRecordNoChangeAndUndo() throws {
         let app = XCUIApplication()
-        app.launchArguments = ["-in-memory", "-seed-sample"]
+        app.launchArguments = ["-in-memory", "-seed-sample", "-reset-language"]
         app.launch()
 
         app.buttons.containing(.staticText, identifier: "Buckwheat · Brand X").firstMatch.tap()
@@ -37,7 +37,7 @@ final class PricemoriUITests: XCTestCase {
     @MainActor
     func testAddProductAndFirstPrice() throws {
         let app = XCUIApplication()
-        app.launchArguments = ["-in-memory", "-seed-sample"]
+        app.launchArguments = ["-in-memory", "-seed-sample", "-reset-language"]
         app.launch()
 
         app.buttons["+ Add"].tap()

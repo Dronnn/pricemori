@@ -19,7 +19,7 @@ extension PriceObservation {
             return "\(amount) \(currencyCode) / \(multiBuyMinimum) × \(package)"
         }
         guard sizeKnown, let packageQuantity, let packageUnit else {
-            return "\(amount) \(currencyCode) / package"
+            return L10n.format("%@ %@ / package", amount, currencyCode)
         }
         if packageUnit.dimension == .count, packageQuantity == 1 {
             return "\(amount) \(currencyCode) / \(packageUnit.symbol)"
@@ -40,11 +40,11 @@ extension PriceObservation {
     var conditionLine: String {
         switch condition {
         case .regular:
-            return "Regular"
+            return L10n.string("Regular")
         case .card:
-            return conditionLabel.isEmpty ? "Card required" : conditionLabel
+            return conditionLabel.isEmpty ? L10n.string("Card required") : conditionLabel
         case .multiBuy:
-            return "Multi-buy · \(multiBuyMinimum) packages"
+            return L10n.format("Multi-buy · %lld packages", multiBuyMinimum)
         }
     }
 

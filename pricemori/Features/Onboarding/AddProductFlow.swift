@@ -151,21 +151,22 @@ struct FirstPriceView: View {
 
     private var priceLabel: String {
         draft.condition == .multiBuy
-            ? "Total price for \(max(2, draft.multiBuyMinimum)) packages"
-            : "Package price"
+            ? L10n.format("Total price for %lld packages", max(2, draft.multiBuyMinimum))
+            : L10n.string("Package price")
     }
 
     private var packageTitle: String {
-        if !draft.sizeKnown { return "Package · Unknown" }
-        if draft.isLoose { return "Per unit · \(draft.quantityText) \(draft.unit.symbol)" }
-        return "Package · \(draft.quantityText) \(draft.unit.symbol)"
+        if !draft.sizeKnown { return L10n.string("Package · Unknown") }
+        let amount = "\(draft.quantityText) \(draft.unit.symbol)"
+        if draft.isLoose { return L10n.format("Per unit · %@", amount) }
+        return L10n.format("Package · %@", amount)
     }
 
     private var packageDetail: String {
         if let preview = draft.unitPricePreviewText {
-            return "\(preview) · Change size or basis"
+            return L10n.format("%@ · %@", preview, L10n.string("Change size or basis"))
         }
-        return "Change size or basis"
+        return L10n.string("Change size or basis")
     }
 
     var body: some View {
@@ -228,7 +229,7 @@ struct FirstPriceView: View {
                     FormRow(
                         label: Format.relativeThenDate(draft.observedAt),
                         value: "",
-                        detail: "\(draft.source.title) · Change date or source"
+                        detail: L10n.format("%@ · %@", draft.source.title, L10n.string("Change date or source"))
                     ) { showDateSource = true }
                     SeparatorLine()
                     FormRow(
@@ -259,11 +260,11 @@ struct FirstPriceView: View {
     }
 
     private var validationMessage: String {
-        if !productDraft.isValid { return "Enter a product name before saving." }
-        if !draft.hasValidPrice { return "Enter an amount greater than zero." }
-        if !draft.hasValidQuantity { return "Enter a package amount greater than zero." }
+        if !productDraft.isValid { return L10n.string("Enter a product name before saving.") }
+        if !draft.hasValidPrice { return L10n.string("Enter an amount greater than zero.") }
+        if !draft.hasValidQuantity { return L10n.string("Enter a package amount greater than zero.") }
         if storeName.trimmingCharacters(in: .whitespaces).isEmpty || branch.trimmingCharacters(in: .whitespaces).isEmpty {
-            return "Enter the store name and branch."
+            return L10n.string("Enter the store name and branch.")
         }
         return ""
     }
@@ -379,7 +380,7 @@ struct StoreFormView: View {
                 }
 
                 if !storeDisplayName.isEmpty {
-                    InfoText(text: "This location will be saved as \(storeDisplayName).")
+                    InfoText(text: L10n.format("This location will be saved as %@.", storeDisplayName))
                 }
 
                 InfoText(text: "Save each branch separately. Two branches of the same chain may charge different prices.")

@@ -59,7 +59,12 @@ final class Product {
     }
 
     var latestRegularObservation: PriceObservation? {
-        regularObservations.last
+        observations
+            .filter { $0.condition == .regular }
+            .max { lhs, rhs in
+                if lhs.observedAt == rhs.observedAt { return lhs.createdAt < rhs.createdAt }
+                return lhs.observedAt < rhs.observedAt
+            }
     }
 
     var storeCount: Int {
@@ -120,7 +125,10 @@ final class StoreLocation {
     }
 
     var latestObservation: PriceObservation? {
-        sortedObservations.first
+        observations.max { lhs, rhs in
+            if lhs.observedAt == rhs.observedAt { return lhs.createdAt < rhs.createdAt }
+            return lhs.observedAt < rhs.observedAt
+        }
     }
 
     var productCount: Int {
@@ -236,27 +244,27 @@ final class PriceObservation {
 
     var packageSummary: String {
         guard sizeKnown, let packageQuantity, let packageUnit else {
-            return "Package size unknown"
+            return L10n.string("Package size unknown")
         }
         let amount = Format.quantity(packageQuantity)
         let base = "\(amount) \(packageUnit.symbol)"
         if isLoose {
-            return "Loose goods · \(base)"
+            return L10n.format("Loose goods · %@", base)
         }
         if packageUnit.dimension == .count {
             return base
         }
-        return "\(base) package"
+        return L10n.format("%@ package", base)
     }
 
     var conditionSummary: String {
         switch condition {
         case .regular:
-            return "Regular"
+            return L10n.string("Regular")
         case .card:
-            return conditionLabel.isEmpty ? "Card required" : conditionLabel
+            return conditionLabel.isEmpty ? L10n.string("Card required") : conditionLabel
         case .multiBuy:
-            return "\(multiBuyMinimum) × \(packageSummary)"
+            return L10n.format("%lld × %@", multiBuyMinimum, packageSummary)
         }
     }
 
@@ -267,7 +275,15 @@ final class PriceObservation {
     var multiBuySummary: String {
         guard condition == .multiBuy else { return "" }
         let each = effectivePackagePrice
-        let package = packageSummary.replacingOccurrences(of: " package", with: "")
-        return "\(multiBuyMinimum) × \(package) for \(Format.money(price, currency: currencyCode)) \(currencyCode) total · \(Format.money(each, currency: currencyCode)) \(currencyCode) each"
+        let package = packageSummary.replacingOccurrences(of: L10n.string("package"), with: "").trimmingCharacters(in: .whitespaces)
+        return L10n.format(
+            "%lld × %@ for %@ %@ total · %@ %@ each",
+            multiBuyMinimum,
+            package,
+            Format.money(price, currency: currencyCode),
+            currencyCode,
+            Format.money(each, currency: currencyCode),
+            currencyCode
+        )
     }
 }

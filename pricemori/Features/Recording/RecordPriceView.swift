@@ -28,22 +28,23 @@ struct RecordPriceView: View {
 
     private var priceLabel: String {
         if draft.condition == .multiBuy {
-            return "Total price for \(max(2, draft.multiBuyMinimum)) packages"
+            return L10n.format("Total price for %lld packages", max(2, draft.multiBuyMinimum))
         }
-        return "Price for this package"
+        return L10n.string("Price for this package")
     }
 
     private var packageTitle: String {
-        if !draft.sizeKnown { return "Package · Unknown" }
-        if draft.isLoose { return "Per unit · \(draft.quantityText) \(draft.unit.symbol)" }
-        return "Per package · \(draft.quantityText) \(draft.unit.symbol)"
+        if !draft.sizeKnown { return L10n.string("Package · Unknown") }
+        let amount = "\(draft.quantityText) \(draft.unit.symbol)"
+        if draft.isLoose { return L10n.format("Per unit · %@", amount) }
+        return L10n.format("Per package · %@", amount)
     }
 
     private var packageDetail: String {
         if let preview = draft.unitPricePreviewText {
-            return "Unit price: \(preview)"
+            return L10n.format("Unit price: %@", preview)
         }
-        return "Enter an amount to see the unit price"
+        return L10n.string("Enter an amount to see the unit price")
     }
 
     private var hasDraftChanges: Bool {
@@ -130,7 +131,7 @@ struct RecordPriceView: View {
 
                 if let latestAtStore {
                     VStack(alignment: .leading, spacing: 3) {
-                        Text("Previous at this branch: \(latestAtStore.unitPrice.map { Format.number($0, maxFraction: 2) } ?? Format.money(latestAtStore.price, currency: latestAtStore.currencyCode)) \(latestAtStore.currencyCode) / \(latestAtStore.baseUnitSymbol ?? "package")")
+                        Text(L10n.format("Previous at this branch: %@ %@ / %@", latestAtStore.unitPrice.map { Format.number($0, maxFraction: 2) } ?? Format.money(latestAtStore.price, currency: latestAtStore.currencyCode), latestAtStore.currencyCode, latestAtStore.baseUnitSymbol ?? L10n.string("package")))
                         Text(Format.dateAndAge(latestAtStore.observedAt))
                     }
                     .font(AppFont.inter(14))
@@ -167,9 +168,9 @@ struct RecordPriceView: View {
     }
 
     private var validationMessage: String {
-        if selectedStore == nil { return "Choose a store for this observation." }
-        if !draft.hasValidPrice { return "Enter an amount greater than zero." }
-        if !draft.hasValidQuantity { return "Enter a package amount greater than zero." }
+        if selectedStore == nil { return L10n.string("Choose a store for this observation.") }
+        if !draft.hasValidPrice { return L10n.string("Enter an amount greater than zero.") }
+        if !draft.hasValidQuantity { return L10n.string("Enter a package amount greater than zero.") }
         return ""
     }
 

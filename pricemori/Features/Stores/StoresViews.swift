@@ -63,7 +63,7 @@ struct StoresView: View {
                             .autocorrectionDisabled()
                     }
 
-                    VStack(spacing: 0) {
+                    LazyVStack(spacing: 0) {
                         ForEach(activeStores) { store in
                             Button {
                                 router.push(.store(store))
@@ -145,7 +145,7 @@ struct StoreDetailView: View {
                     InfoText(text: "No products recorded at this branch yet.")
                         .padding(.top, 24)
                 } else {
-                    VStack(spacing: 0) {
+                    LazyVStack(spacing: 0) {
                         ForEach(products) { product in
                             Button {
                                 router.push(.productFromStore(product))
@@ -235,7 +235,7 @@ struct ArchivedStoresView: View {
                     InfoText(text: "No archived stores.")
                         .padding(.top, 20)
                 } else {
-                    VStack(spacing: 0) {
+                    LazyVStack(spacing: 0) {
                         ForEach(archived) { store in
                             VStack(alignment: .leading, spacing: 8) {
                                 Text(store.displayName)
@@ -308,7 +308,7 @@ struct ArchivedProductsView: View {
                     InfoText(text: "No archived products.")
                         .padding(.top, 20)
                 } else {
-                    VStack(spacing: 0) {
+                    LazyVStack(spacing: 0) {
                         ForEach(archived) { product in
                             VStack(alignment: .leading, spacing: 8) {
                                 Text(product.displayName)

@@ -4,6 +4,11 @@ import SwiftData
 struct RootView: View {
     @Query(sort: \Product.createdAt) private var products: [Product]
     @StateObject private var router = AppRouter()
+    @AppStorage(AppLanguage.storageKey) private var appLanguageRaw = AppLanguage.system.rawValue
+
+    private var appLanguage: AppLanguage {
+        AppLanguage(rawValue: appLanguageRaw) ?? .system
+    }
 
     var body: some View {
         NavigationStack(path: $router.path) {
@@ -19,6 +24,7 @@ struct RootView: View {
             }
         }
         .environmentObject(router)
+        .environment(\.locale, appLanguage.locale)
         .tint(Theme.accent)
         .background(Theme.background)
     }

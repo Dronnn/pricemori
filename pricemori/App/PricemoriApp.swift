@@ -9,6 +9,11 @@ struct PricemoriApp: App {
         AppFont.registerFonts()
 
         let arguments = ProcessInfo.processInfo.arguments
+        #if DEBUG
+        if arguments.contains("-reset-language") {
+            UserDefaults.standard.set(AppLanguage.english.rawValue, forKey: AppLanguage.storageKey)
+        }
+        #endif
         let inMemory = arguments.contains("-in-memory")
         let schema = Schema([Product.self, StoreLocation.self, PriceObservation.self])
         let configuration = ModelConfiguration(schema: schema, isStoredInMemoryOnly: inMemory)

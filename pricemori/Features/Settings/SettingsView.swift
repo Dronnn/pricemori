@@ -4,6 +4,12 @@ struct SettingsView: View {
     @EnvironmentObject private var router: AppRouter
     @AppStorage("currencyCode") private var currencyCode = "AMD"
     @AppStorage("defaultSource") private var defaultSourceRaw = ObservationSource.shelf.rawValue
+    @AppStorage(AppLanguage.storageKey) private var appLanguageRaw = AppLanguage.system.rawValue
+    @State private var showLanguage = false
+
+    private var appLanguage: AppLanguage {
+        AppLanguage(rawValue: appLanguageRaw) ?? .system
+    }
 
     private var defaultSource: ObservationSource {
         ObservationSource(rawValue: defaultSourceRaw) ?? .shelf
@@ -14,6 +20,14 @@ struct SettingsView: View {
             VStack(alignment: .leading, spacing: 0) {
                 FieldLabel(text: "Preferences")
                     .padding(.top, 6)
+                OpenRow(
+                    title: "Language",
+                    subtitle: "Switch languages without restarting the app",
+                    value: appLanguage.nativeName
+                ) {
+                    showLanguage = true
+                }
+                SeparatorLine()
                 OpenRow(
                     title: "Entry defaults",
                     subtitle: "Currency and observation source"
@@ -58,6 +72,32 @@ struct SettingsView: View {
 
                 InfoText(text: "Appearance and text size follow your iPhone. Core recording and charts work offline.")
                     .padding(.top, 24)
+            }
+        }
+        .fullScreenCover(isPresented: $showLanguage) {
+            LanguagePickerView(selection: $appLanguageRaw)
+        }
+    }
+}
+
+struct LanguagePickerView: View {
+    @Binding var selection: String
+    @Environment(\.dismiss) private var dismiss
+
+    var body: some View {
+        ScreenScaffold(title: "Language", backLabel: "Settings") {
+            VStack(alignment: .leading, spacing: 0) {
+                ForEach(AppLanguage.allCases) { language in
+                    SelectionRow(
+                        title: language == .system ? L10n.string("System") : language.nativeName,
+                        subtitle: language == .system ? L10n.string("Follow the iPhone setting") : nil,
+                        isSelected: selection == language.rawValue
+                    ) {
+                        selection = language.rawValue
+                        dismiss()
+                    }
+                    SeparatorLine()
+                }
             }
         }
     }

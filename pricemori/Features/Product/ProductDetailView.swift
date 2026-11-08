@@ -123,7 +123,7 @@ struct ProductDetailView: View {
                     VStack(alignment: .leading, spacing: 4) {
                         Text("\(primary.packageSummary) · \(primary.conditionLine)")
                         Text(Format.dateAndAge(primary.observedAt))
-                        Text("\(primary.condition == .regular ? "Regular price" : primary.conditionLine) · \(primary.source.title)")
+                        Text("\(primary.condition == .regular ? L10n.string("Regular price") : primary.conditionLine) · \(primary.source.title)")
                     }
                     .font(AppFont.inter(14))
                     .foregroundStyle(Theme.secondaryText)
@@ -246,7 +246,7 @@ struct ProductDetailView: View {
 
     private func saveFeedback(for observation: PriceObservation) -> String {
         guard observation.sizeKnown else {
-            return "Price saved · Package size unknown"
+            return L10n.string("Price saved · Package size unknown")
         }
         if let previous = PriceMath.previousComparable(for: observation, among: product.observations),
            previous.packageQuantity != observation.packageQuantity
@@ -255,9 +255,9 @@ struct ProductDetailView: View {
                 .compactMap { $0 }.joined(separator: " ")
             let new = [observation.packageQuantity.map { NSDecimalNumber(decimal: $0).stringValue }, observation.packageUnit?.symbol]
                 .compactMap { $0 }.joined(separator: " ")
-            return "Size change saved · \(old) to \(new)"
+            return L10n.format("Size change saved · %@ to %@", old, new)
         }
-        return "Price saved · \(Format.relativeAge(observation.observedAt))"
+        return L10n.format("Price saved · %@", Format.relativeAge(observation.observedAt))
     }
 
     private func recordNoChange() {
@@ -303,7 +303,7 @@ struct OtherStoreRow: View {
                 Text(item.store.displayName)
                     .font(AppFont.inter(15, .medium))
                     .foregroundStyle(Theme.primaryText)
-                Text("\(Format.dateAndAge(item.observation.observedAt))\(item.observation.isExpired ? " · Expired offer" : "")")
+                Text("\(Format.dateAndAge(item.observation.observedAt))\(item.observation.isExpired ? " · " + L10n.string("Expired offer") : "")")
                     .font(AppFont.inter(13))
                     .foregroundStyle(Theme.secondaryText)
             }
@@ -468,7 +468,7 @@ struct ConditionalOffersView: View {
                     InfoText(text: "No card or multi-buy offers are recorded for this product.")
                 }
 
-                VStack(spacing: 0) {
+                LazyVStack(spacing: 0) {
                     ForEach(activeOffers) { offer in
                         Button {
                             selectedOffer = offer
@@ -483,7 +483,7 @@ struct ConditionalOffersView: View {
                 if !expiredOffers.isEmpty {
                     SectionTitle(text: "Expired offers")
                         .padding(.top, 8)
-                    VStack(spacing: 0) {
+                    LazyVStack(spacing: 0) {
                         ForEach(expiredOffers) { offer in
                             Button {
                                 selectedOffer = offer

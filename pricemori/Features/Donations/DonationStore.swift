@@ -62,7 +62,7 @@ final class DonationStore: ObservableObject {
     }
 
     func displayName(for tier: DonationTier) -> String {
-        product(for: tier)?.displayName ?? tier.name
+        L10n.string(tier.name)
     }
 
     func loadProducts(force: Bool = false) async {

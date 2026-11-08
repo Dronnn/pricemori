@@ -316,7 +316,7 @@ struct PeriodChangesView: View {
                     .frame(maxWidth: .infinity)
                     .padding(.top, 6)
 
-                VStack(spacing: 0) {
+                LazyVStack(spacing: 0) {
                     ForEach(rows) { row in
                         VStack(alignment: .leading, spacing: 6) {
                             HStack {

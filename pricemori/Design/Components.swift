@@ -1,6 +1,7 @@
 import SwiftUI
 
 struct ScreenScaffold<Content: View, Footer: View, Trailing: View>: View {
+    @Environment(\.locale) private var locale
     let title: String?
     let backLabel: String?
     let showsBackChevron: Bool
@@ -61,6 +62,7 @@ struct ScreenScaffold<Content: View, Footer: View, Trailing: View>: View {
         }
         .background(Theme.background.ignoresSafeArea())
         .toolbar(.hidden, for: .navigationBar)
+        .id(locale.identifier)
     }
 }
 
@@ -77,10 +79,11 @@ struct ScreenHeader: View {
         VStack(spacing: 0) {
             ZStack {
                 if let title {
-                    Text(title)
+                    Text(L10n.string(title))
                         .font(AppFont.inter(17, .semibold))
                         .foregroundStyle(Theme.primaryText)
                         .lineLimit(1)
+                        .minimumScaleFactor(0.75)
                 }
                 HStack(spacing: 0) {
                     if backAction != nil || backLabel != nil {
@@ -93,8 +96,10 @@ struct ScreenHeader: View {
                                         .font(.system(size: 15, weight: .semibold))
                                 }
                                 if let backLabel {
-                                    Text(backLabel)
+                                    Text(L10n.string(backLabel))
                                         .font(AppFont.inter(15, .medium))
+                                        .lineLimit(1)
+                                        .minimumScaleFactor(0.7)
                                 }
                             }
                             .foregroundStyle(Theme.primaryText)
@@ -123,9 +128,11 @@ struct HeaderActionButton: View {
 
     var body: some View {
         Button(action: action) {
-            Text(title)
+            Text(L10n.string(title))
                 .font(AppFont.inter(15, .medium))
                 .foregroundStyle(Theme.primaryText)
+                .lineLimit(1)
+                .minimumScaleFactor(0.7)
                 .frame(minWidth: 44, minHeight: 44, alignment: .trailing)
                 .contentShape(Rectangle())
         }
@@ -140,7 +147,7 @@ struct PrimaryButton: View {
 
     var body: some View {
         Button(action: action) {
-            Text(title)
+            Text(L10n.string(title))
                 .font(AppFont.inter(16, .semibold))
                 .foregroundStyle(Theme.onAccent)
                 .multilineTextAlignment(.center)
@@ -161,7 +168,7 @@ struct SecondaryButton: View {
 
     var body: some View {
         Button(action: action) {
-            Text(title)
+            Text(L10n.string(title))
                 .font(AppFont.inter(16, .semibold))
                 .foregroundStyle(color)
                 .multilineTextAlignment(.center)
@@ -180,9 +187,11 @@ struct FilterChip: View {
 
     var body: some View {
         Button(action: action) {
-            Text(title)
+            Text(L10n.string(title))
                 .font(AppFont.inter(14, .medium))
                 .foregroundStyle(isSelected ? Theme.onAccent : Theme.secondaryText)
+                .lineLimit(1)
+                .minimumScaleFactor(0.7)
                 .padding(.horizontal, 14)
                 .padding(.vertical, 10)
                 .frame(minHeight: 44)
@@ -208,9 +217,11 @@ struct SegmentedChip: View {
 
     var body: some View {
         Button(action: action) {
-            Text(title)
+            Text(L10n.string(title))
                 .font(AppFont.inter(14, .medium))
                 .foregroundStyle(isSelected ? Theme.onAccent : Theme.secondaryText)
+                .lineLimit(1)
+                .minimumScaleFactor(0.7)
                 .frame(maxWidth: .infinity)
                 .padding(.vertical, 10)
                 .frame(minHeight: 44)
@@ -233,9 +244,10 @@ struct FieldLabel: View {
     let text: String
 
     var body: some View {
-        Text(text.uppercased())
+        Text(L10n.string(text))
             .font(AppFont.inter(12, .medium))
             .foregroundStyle(Theme.secondaryText)
+            .textCase(.uppercase)
             .tracking(0.5)
     }
 }
@@ -248,7 +260,7 @@ struct OutlinedField: View {
     var isFocused: Bool = false
 
     var body: some View {
-        TextField(placeholder, text: $text)
+        TextField(L10n.string(placeholder), text: $text)
             .font(AppFont.inter(16))
             .foregroundStyle(Theme.primaryText)
             .keyboardType(keyboard)
@@ -272,7 +284,7 @@ struct SearchFieldButton: View {
 
     var body: some View {
         Button(action: action) {
-            Text(placeholder)
+            Text(L10n.string(placeholder))
                 .font(AppFont.inter(16))
                 .foregroundStyle(Theme.secondaryText)
                 .frame(maxWidth: .infinity, alignment: .leading)
@@ -302,13 +314,13 @@ struct SectionTitle: View {
 
     var body: some View {
         HStack(alignment: .firstTextBaseline) {
-            Text(text)
+            Text(L10n.string(text))
                 .font(AppFont.inter(17, .semibold))
                 .foregroundStyle(Theme.primaryText)
             Spacer()
             if let actionTitle, let action {
                 Button(action: action) {
-                    Text(actionTitle)
+                    Text(L10n.string(actionTitle))
                         .font(AppFont.inter(16, .semibold))
                         .foregroundStyle(Theme.secondaryText)
                         .frame(minHeight: 44)
@@ -324,7 +336,7 @@ struct InfoText: View {
     let text: String
 
     var body: some View {
-        Text(text)
+        Text(L10n.string(text))
             .font(AppFont.inter(14))
             .foregroundStyle(Theme.secondaryText)
             .lineSpacing(3)
@@ -342,13 +354,13 @@ struct SavedBanner: View {
             Text("✓")
                 .font(AppFont.inter(16))
                 .foregroundStyle(Theme.secondaryText)
-            Text(text)
+            Text(L10n.string(text))
                 .font(AppFont.inter(14, .medium))
                 .foregroundStyle(Theme.secondaryText)
                 .lineLimit(2)
             Spacer(minLength: 8)
             if let undo {
-                Button(undoTitle, action: undo)
+                Button(L10n.string(undoTitle), action: undo)
                     .font(AppFont.inter(16, .semibold))
                     .foregroundStyle(Theme.secondaryText)
                     .buttonStyle(.plain)
@@ -369,11 +381,11 @@ struct OpenRow: View {
         Button(action: action) {
             HStack(alignment: .firstTextBaseline, spacing: 12) {
                 VStack(alignment: .leading, spacing: 4) {
-                    Text(title)
+                    Text(L10n.string(title))
                         .font(AppFont.inter(16, .medium))
                         .foregroundStyle(Theme.primaryText)
                     if let subtitle {
-                        Text(subtitle)
+                        Text(L10n.string(subtitle))
                             .font(AppFont.inter(14))
                             .foregroundStyle(Theme.secondaryText)
                             .fixedSize(horizontal: false, vertical: true)
@@ -381,7 +393,7 @@ struct OpenRow: View {
                 }
                 Spacer(minLength: 8)
                 if let value {
-                    Text(value)
+                    Text(L10n.string(value))
                         .font(AppFont.inter(16, .medium))
                         .foregroundStyle(Theme.secondaryText)
                 }
@@ -411,11 +423,11 @@ struct SelectionRow: View {
                     Color.clear.frame(width: 18, height: 1)
                 }
                 VStack(alignment: .leading, spacing: 4) {
-                    Text(title)
+                    Text(L10n.string(title))
                         .font(AppFont.inter(16, .medium))
                         .foregroundStyle(Theme.primaryText)
                     if let subtitle {
-                        Text(subtitle)
+                        Text(L10n.string(subtitle))
                             .font(AppFont.inter(14))
                             .foregroundStyle(Theme.secondaryText)
                     }
@@ -439,17 +451,17 @@ struct FormRow: View {
         Button(action: action) {
             HStack(alignment: .firstTextBaseline, spacing: 12) {
                 VStack(alignment: .leading, spacing: 4) {
-                    Text(label)
+                    Text(L10n.string(label))
                         .font(AppFont.inter(16, .medium))
                         .foregroundStyle(Theme.primaryText)
                     if let detail {
-                        Text(detail)
+                        Text(L10n.string(detail))
                             .font(AppFont.inter(14))
                             .foregroundStyle(Theme.secondaryText)
                     }
                 }
                 Spacer(minLength: 8)
-                Text(value)
+                Text(L10n.string(value))
                     .font(AppFont.inter(15))
                     .foregroundStyle(Theme.secondaryText)
                     .multilineTextAlignment(.trailing)
@@ -469,12 +481,12 @@ struct FullWidthInfoRow: View {
     var body: some View {
         HStack(alignment: .firstTextBaseline, spacing: 12) {
             VStack(alignment: .leading, spacing: 4) {
-                Text(title)
+                Text(L10n.string(title))
                     .font(AppFont.inter(16, .medium))
                     .foregroundStyle(Theme.primaryText)
                     .fixedSize(horizontal: false, vertical: true)
                 if let subtitle {
-                    Text(subtitle)
+                    Text(L10n.string(subtitle))
                         .font(AppFont.inter(14))
                         .foregroundStyle(Theme.secondaryText)
                         .fixedSize(horizontal: false, vertical: true)
@@ -482,7 +494,7 @@ struct FullWidthInfoRow: View {
             }
             Spacer(minLength: 8)
             if let trailing {
-                Text(trailing)
+                Text(L10n.string(trailing))
                     .font(AppFont.inter(16, .semibold))
                     .foregroundStyle(Theme.primaryText)
                     .multilineTextAlignment(.trailing)

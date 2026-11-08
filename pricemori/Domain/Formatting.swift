@@ -1,8 +1,8 @@
 import Foundation
 
 enum Format {
-    private static let numberLocale = Locale(identifier: "en_US")
-    private static let dateLocale = Locale(identifier: "en_GB")
+    private static var numberLocale: Locale { L10n.formattingLocale }
+    private static var dateLocale: Locale { L10n.formattingLocale }
 
     static func number(_ value: Decimal, minFraction: Int = 0, maxFraction: Int = 2) -> String {
         let formatter = NumberFormatter()
@@ -46,14 +46,14 @@ enum Format {
     static func shortDate(_ date: Date) -> String {
         let formatter = DateFormatter()
         formatter.locale = dateLocale
-        formatter.dateFormat = "d MMM"
+        formatter.setLocalizedDateFormatFromTemplate("dMMM")
         return formatter.string(from: date)
     }
 
     static func date(_ date: Date) -> String {
         let formatter = DateFormatter()
         formatter.locale = dateLocale
-        formatter.dateFormat = "d MMM yyyy"
+        formatter.setLocalizedDateFormatFromTemplate("dMMMyyyy")
         return formatter.string(from: date)
     }
 
@@ -72,14 +72,15 @@ enum Format {
     static func timestamp(_ date: Date) -> String {
         let formatter = DateFormatter()
         formatter.locale = dateLocale
-        formatter.dateFormat = "d MMM yyyy · HH:mm"
+        formatter.setLocalizedDateFormatFromTemplate("dMMMyyyy HHmm")
         return formatter.string(from: date)
     }
 
     static func time(_ date: Date) -> String {
         let formatter = DateFormatter()
         formatter.locale = dateLocale
-        formatter.dateFormat = "HH:mm"
+        formatter.timeStyle = .short
+        formatter.dateStyle = .none
         return formatter.string(from: date)
     }
 
@@ -91,18 +92,18 @@ enum Format {
         switch days {
         case ..<0:
             let future = abs(days)
-            return future == 1 ? "Tomorrow" : "In \(future) days"
+            return future == 1 ? L10n.string("Tomorrow") : L10n.format("In %lld days", future)
         case 0:
-            return "Today"
+            return L10n.string("Today")
         case 1:
-            return "Yesterday"
+            return L10n.string("Yesterday")
         default:
-            return "\(days) days ago"
+            return L10n.format("%lld days ago", days)
         }
     }
 
     static func periodRange(from: Date, to: Date) -> String {
-        "\(shortDate(from)) to \(date(to))"
+        L10n.format("%@ to %@", shortDate(from), date(to))
     }
 
     static func roundedForCurrency(_ amount: Decimal, currency: String) -> Decimal {

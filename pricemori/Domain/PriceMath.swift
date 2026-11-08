@@ -176,11 +176,30 @@ enum PriceMath {
     }
 
     static func allTimeRange(for observations: [PriceObservation]) -> RecordedRange? {
-        let priced = observations.filter { $0.unitPrice != nil }
-        guard let minimum = priced.min(by: { ($0.unitPrice ?? 0) < ($1.unitPrice ?? 0) }),
-              let maximum = priced.max(by: { ($0.unitPrice ?? 0) < ($1.unitPrice ?? 0) }),
-              let latest = priced.max(by: { isEarlier($0, than: $1) })
-        else { return nil }
+        var minimum: PriceObservation?
+        var maximum: PriceObservation?
+        var latest: PriceObservation?
+
+        for observation in observations {
+            guard let price = observation.unitPrice else { continue }
+            if let current = minimum, let currentPrice = current.unitPrice {
+                if price < currentPrice { minimum = observation }
+            } else {
+                minimum = observation
+            }
+            if let current = maximum, let currentPrice = current.unitPrice {
+                if price > currentPrice { maximum = observation }
+            } else {
+                maximum = observation
+            }
+            if let current = latest {
+                if isEarlier(current, than: observation) { latest = observation }
+            } else {
+                latest = observation
+            }
+        }
+
+        guard let minimum, let maximum, let latest else { return nil }
         return RecordedRange(minimum: minimum, maximum: maximum, latest: latest)
     }
 
@@ -197,19 +216,20 @@ enum PriceMath {
         let end = calendar.date(byAdding: .day, value: 1, to: calendar.startOfDay(for: to)) ?? to
 
         return products.compactMap { product in
-            let observations = product.observations
-                .filter { observation in
-                    observation.store?.id == store.id
-                        && observation.condition == condition
-                        && observation.currencyCode == currency
-                        && observation.observedAt >= start
-                        && observation.observedAt < end
-                        && observation.unitPrice != nil
-                }
-                .sorted { isEarlier($0, than: $1) }
-            guard let first = observations.first,
-                  let last = observations.last,
-                  first.id != last.id,
+            var first: PriceObservation?
+            var last: PriceObservation?
+            for observation in product.observations {
+                guard observation.store?.id == store.id,
+                      observation.condition == condition,
+                      observation.currencyCode == currency,
+                      observation.observedAt >= start,
+                      observation.observedAt < end,
+                      observation.unitPrice != nil
+                else { continue }
+                if first == nil || isEarlier(observation, than: first!) { first = observation }
+                if last == nil || isEarlier(last!, than: observation) { last = observation }
+            }
+            guard let first, let last, first.id != last.id,
                   let change = change(current: last, previous: first)
             else { return nil }
             return PeriodChangeRow(product: product, first: first, last: last, change: change)

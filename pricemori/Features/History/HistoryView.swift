@@ -147,7 +147,7 @@ struct HistoryView: View {
                 }
                 .padding(.top, 20)
 
-                VStack(spacing: 0) {
+                LazyVStack(spacing: 0) {
                     ForEach(observations) { observation in
                         NavigationLink {
                             ObservationDetailView(
@@ -188,7 +188,7 @@ struct HistoryView: View {
             if let scopedStore {
                 EarlierPriceView(product: product, store: scopedStore) { observation in
                     earlierObservation = observation
-                    earlierMessage = "Earlier price added · \(Format.date(observation.observedAt)). Latest remains \(latestText)."
+                    earlierMessage = L10n.format("Earlier price added · %@. Latest remains %@.", Format.date(observation.observedAt), latestText)
                 }
             }
         }

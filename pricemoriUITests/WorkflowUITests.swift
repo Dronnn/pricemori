@@ -8,7 +8,7 @@ final class WorkflowUITests: XCTestCase {
     @MainActor
     func testArchiveAndRestoreProduct() throws {
         let app = XCUIApplication()
-        app.launchArguments = ["-in-memory", "-seed-sample"]
+        app.launchArguments = ["-in-memory", "-seed-sample", "-reset-language"]
         app.launch()
 
         app.buttons.containing(.staticText, identifier: "Buckwheat · Brand X").firstMatch.tap()
@@ -30,7 +30,7 @@ final class WorkflowUITests: XCTestCase {
     @MainActor
     func testAddEarlierObservationAndUndo() throws {
         let app = XCUIApplication()
-        app.launchArguments = ["-in-memory", "-seed-sample"]
+        app.launchArguments = ["-in-memory", "-seed-sample", "-reset-language"]
         app.launch()
 
         app.buttons.containing(.staticText, identifier: "Buckwheat · Brand X").firstMatch.tap()
@@ -51,7 +51,7 @@ final class WorkflowUITests: XCTestCase {
     @MainActor
     func testDeleteObservationAndUndo() throws {
         let app = XCUIApplication()
-        app.launchArguments = ["-in-memory", "-seed-sample"]
+        app.launchArguments = ["-in-memory", "-seed-sample", "-reset-language"]
         app.launch()
 
         app.buttons.containing(.staticText, identifier: "Buckwheat · Brand X").firstMatch.tap()
@@ -73,7 +73,7 @@ final class WorkflowUITests: XCTestCase {
     @MainActor
     func testUnknownPackageSizeSave() throws {
         let app = XCUIApplication()
-        app.launchArguments = ["-in-memory", "-seed-sample"]
+        app.launchArguments = ["-in-memory", "-seed-sample", "-reset-language"]
         app.launch()
 
         app.buttons.containing(.staticText, identifier: "Buckwheat · Brand X").firstMatch.tap()
@@ -97,7 +97,7 @@ final class WorkflowUITests: XCTestCase {
     @MainActor
     func testCardConditionAndOfferDetail() throws {
         let app = XCUIApplication()
-        app.launchArguments = ["-in-memory", "-seed-sample"]
+        app.launchArguments = ["-in-memory", "-seed-sample", "-reset-language"]
         app.launch()
 
         app.buttons.containing(.staticText, identifier: "Buckwheat · Brand X").firstMatch.tap()
@@ -136,7 +136,7 @@ final class WorkflowUITests: XCTestCase {
     @MainActor
     func testDiscardDraftConfirmation() throws {
         let app = XCUIApplication()
-        app.launchArguments = ["-in-memory", "-seed-sample"]
+        app.launchArguments = ["-in-memory", "-seed-sample", "-reset-language"]
         app.launch()
 
         app.buttons.containing(.staticText, identifier: "Buckwheat · Brand X").firstMatch.tap()
@@ -161,7 +161,7 @@ final class WorkflowUITests: XCTestCase {
     @MainActor
     func testSearchAndFavorites() throws {
         let app = XCUIApplication()
-        app.launchArguments = ["-in-memory", "-seed-sample"]
+        app.launchArguments = ["-in-memory", "-seed-sample", "-reset-language"]
         app.launch()
 
         app.buttons["Search name, brand or model"].tap()
@@ -190,12 +190,12 @@ final class WorkflowUITests: XCTestCase {
     @MainActor
     func testDonationScreenShowsTiersAndSelection() throws {
         let app = XCUIApplication()
-        app.launchArguments = ["-in-memory", "-seed-sample"]
+        app.launchArguments = ["-in-memory", "-seed-sample", "-reset-language"]
         app.launch()
 
         app.buttons["Support Pricemori"].tap()
         XCTAssertTrue(app.staticTexts["Support Pricemori"].waitForExistence(timeout: 5))
-        XCTAssertTrue(app.staticTexts["CHOOSE AN AMOUNT"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.staticTexts["Choose an amount"].waitForExistence(timeout: 5))
         XCTAssertTrue(app.buttons.matching(NSPredicate(format: "label CONTAINS %@", "$2.99")).firstMatch.waitForExistence(timeout: 5))
 
         let screenshot = XCTAttachment(screenshot: XCUIScreen.main.screenshot())
@@ -213,9 +213,36 @@ final class WorkflowUITests: XCTestCase {
     }
 
     @MainActor
+    func testZLanguageSwitchUpdatesImmediately() throws {
+        let app = XCUIApplication()
+        app.launchArguments = ["-in-memory", "-seed-sample", "-reset-language"]
+        app.launch()
+
+        app.buttons["Menu"].tap()
+        app.buttons.containing(.staticText, identifier: "Settings").firstMatch.tap()
+        XCTAssertTrue(app.staticTexts["Settings"].waitForExistence(timeout: 5))
+
+        app.buttons.containing(.staticText, identifier: "Language").firstMatch.tap()
+        XCTAssertTrue(app.buttons["Deutsch"].waitForExistence(timeout: 5))
+        app.buttons["Deutsch"].tap()
+
+        XCTAssertTrue(app.staticTexts["Einstellungen"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.staticTexts["Sprache"].exists)
+
+        let screenshot = XCTAttachment(screenshot: XCUIScreen.main.screenshot())
+        screenshot.name = "settings-german"
+        screenshot.lifetime = .keepAlways
+        add(screenshot)
+
+        app.buttons["Tagebuch"].tap()
+        XCTAssertTrue(app.staticTexts["Tagebuch"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.buttons["Menü"].exists)
+    }
+
+    @MainActor
     func testVisibleTapTargetsMeet44Points() throws {
         let app = XCUIApplication()
-        app.launchArguments = ["-in-memory", "-seed-sample"]
+        app.launchArguments = ["-in-memory", "-seed-sample", "-reset-language"]
         app.launch()
 
         assertTapTargets(in: app, context: "Journal")
@@ -234,7 +261,7 @@ final class WorkflowUITests: XCTestCase {
     @MainActor
     func testAddStore() throws {
         let app = XCUIApplication()
-        app.launchArguments = ["-in-memory", "-seed-sample"]
+        app.launchArguments = ["-in-memory", "-seed-sample", "-reset-language"]
         app.launch()
 
         app.buttons["Menu"].tap()

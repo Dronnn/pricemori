@@ -35,7 +35,7 @@ struct DonationView: View {
                     }
                 } else {
                     PrimaryButton(
-                        title: "Donate \(store.displayPrice(for: selectedTier))",
+                        title: L10n.format("Donate %@", store.displayPrice(for: selectedTier)),
                         isEnabled: selectedProduct != nil && store.purchasingProductID == nil
                     ) {
                         guard let selectedProduct else { return }

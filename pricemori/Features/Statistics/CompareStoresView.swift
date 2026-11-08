@@ -99,7 +99,7 @@ struct CompareStoresView: View {
                 .foregroundStyle(Theme.secondaryText)
                 .padding(.top, 20)
 
-            VStack(spacing: 0) {
+            LazyVStack(spacing: 0) {
                 ForEach(storePrices, id: \.store.id) { item in
                     VStack(alignment: .leading, spacing: 6) {
                         HStack(alignment: .firstTextBaseline) {
@@ -146,7 +146,7 @@ struct CompareStoresView: View {
                 InfoText(text: "No card or multi-buy offers are recorded for this product.")
                     .padding(.top, 16)
             } else {
-                VStack(spacing: 0) {
+                LazyVStack(spacing: 0) {
                     ForEach(conditionalOffers) { offer in
                         Button {
                             selectedOffer = offer
@@ -171,7 +171,7 @@ struct CompareStoresView: View {
                 .foregroundStyle(Theme.primaryText)
                 .padding(.top, 20)
 
-            VStack(spacing: 0) {
+            LazyVStack(spacing: 0) {
                 ForEach(excluded) { observation in
                     VStack(alignment: .leading, spacing: 4) {
                         Text(exclusionTitle(observation))

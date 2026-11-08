@@ -44,7 +44,7 @@ struct SearchView: View {
                         }
                     }
                 } else {
-                    VStack(spacing: 0) {
+                    LazyVStack(spacing: 0) {
                         ForEach(matches) { product in
                             Button {
                                 router.push(.productFromSearch(product))
@@ -151,7 +151,7 @@ struct FavoritesView: View {
                     }
                     .padding(.top, 12)
                 } else {
-                    VStack(spacing: 0) {
+                    LazyVStack(spacing: 0) {
                         ForEach(favorites) { product in
                             HStack(spacing: 8) {
                                 Button {

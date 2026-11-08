@@ -160,6 +160,67 @@ struct PricemoriTests {
         #expect(abs(NSDecimalNumber(decimal: change?.percent ?? 0).doubleValue + 4.0) < 0.001)
     }
 
+    @Test func allLanguageBundlesResolve() {
+        let defaults = UserDefaults.standard
+        let previous = defaults.string(forKey: AppLanguage.storageKey)
+        defer {
+            if let previous {
+                defaults.set(previous, forKey: AppLanguage.storageKey)
+            } else {
+                defaults.removeObject(forKey: AppLanguage.storageKey)
+            }
+        }
+
+        let expectations: [String: String] = [
+            "de": "Abbrechen",
+            "fr": "Annuler",
+            "es": "Cancelar",
+            "pt-BR": "Cancelar",
+            "pl": "Anuluj",
+            "ru": "Отмена",
+            "uk": "Скасувати",
+            "hy": "Չեղարկել",
+            "ja": "キャンセル",
+            "ko": "취소",
+            "zh-Hans": "取消",
+            "vi": "Hủy",
+            "it": "Annulla",
+            "nl": "Annuleer",
+            "tr": "İptal",
+            "id": "Batal"
+        ]
+
+        for (code, expected) in expectations {
+            defaults.set(code, forKey: AppLanguage.storageKey)
+            #expect(L10n.string("Cancel") == expected, "Language \(code)")
+        }
+
+        defaults.set("en", forKey: AppLanguage.storageKey)
+        #expect(L10n.string("Cancel") == "Cancel")
+    }
+
+    @Test func localizedStringsLoadFromBundles() {
+        let defaults = UserDefaults.standard
+        let previous = defaults.string(forKey: AppLanguage.storageKey)
+        defer {
+            if let previous {
+                defaults.set(previous, forKey: AppLanguage.storageKey)
+            } else {
+                defaults.removeObject(forKey: AppLanguage.storageKey)
+            }
+        }
+
+        defaults.set(AppLanguage.german.rawValue, forKey: AppLanguage.storageKey)
+        #expect(L10n.string("Journal") == "Tagebuch")
+        #expect(L10n.string("Settings") == "Einstellungen")
+
+        defaults.set(AppLanguage.russian.rawValue, forKey: AppLanguage.storageKey)
+        #expect(L10n.string("Journal") == "Журнал")
+
+        defaults.set(AppLanguage.armenian.rawValue, forKey: AppLanguage.storageKey)
+        #expect(L10n.string("Journal") == "Օրագիր")
+    }
+
     @Test func staleAgeIsReported() {
         let now = date(30)
         #expect(Format.relativeAge(date(0), relativeTo: now) == "30 days ago")

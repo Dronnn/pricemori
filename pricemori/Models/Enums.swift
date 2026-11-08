@@ -17,9 +17,9 @@ enum MeasurementUnit: String, Codable, CaseIterable, Identifiable {
         case .kilogram: "kg"
         case .milliliter: "mL"
         case .liter: "L"
-        case .item: "item"
-        case .pair: "pair"
-        case .loaf: "loaf"
+        case .item: L10n.string("item")
+        case .pair: L10n.string("pair")
+        case .loaf: L10n.string("loaf")
         }
     }
 
@@ -47,7 +47,7 @@ enum MeasurementUnit: String, Codable, CaseIterable, Identifiable {
         switch dimension {
         case .mass: "kg"
         case .volume: "L"
-        case .count: self == .loaf ? "loaf" : self == .pair ? "pair" : "item"
+        case .count: self == .loaf ? L10n.string("loaf") : self == .pair ? L10n.string("pair") : L10n.string("item")
         }
     }
 
@@ -71,17 +71,17 @@ enum ObservationCondition: String, Codable, CaseIterable, Identifiable {
 
     var title: String {
         switch self {
-        case .regular: "Regular price"
-        case .card: "Card only"
-        case .multiBuy: "Multi-buy"
+        case .regular: L10n.string("Regular price")
+        case .card: L10n.string("Card only")
+        case .multiBuy: L10n.string("Multi-buy")
         }
     }
 
     var shortTitle: String {
         switch self {
-        case .regular: "Regular"
-        case .card: "Card"
-        case .multiBuy: "Multi-buy"
+        case .regular: L10n.string("Regular")
+        case .card: L10n.string("Card")
+        case .multiBuy: L10n.string("Multi-buy")
         }
     }
 }
@@ -94,15 +94,15 @@ enum ObservationSource: String, Codable, CaseIterable, Identifiable {
 
     var title: String {
         switch self {
-        case .shelf: "Seen on shelf"
-        case .paid: "Actually paid"
+        case .shelf: L10n.string("Seen on shelf")
+        case .paid: L10n.string("Actually paid")
         }
     }
 
     var shortTitle: String {
         switch self {
-        case .shelf: "Shelf price"
-        case .paid: "Paid price"
+        case .shelf: L10n.string("Shelf price")
+        case .paid: L10n.string("Paid price")
         }
     }
 }
@@ -112,7 +112,7 @@ enum JournalSort: String, CaseIterable, Identifiable {
     case name
 
     var id: String { rawValue }
-    var title: String { self == .recent ? "Recent" : "Name" }
+    var title: String { self == .recent ? L10n.string("Recent") : L10n.string("Name") }
 }
 
 struct CurrencyOption: Identifiable, Hashable {
@@ -134,7 +134,7 @@ struct CurrencyOption: Identifiable, Hashable {
     ]
 
     static func name(for code: String) -> String {
-        all.first { $0.code == code }?.name ?? code
+        L10n.string(all.first { $0.code == code }?.name ?? code)
     }
 
     static func minorUnitCount(for code: String) -> Int {

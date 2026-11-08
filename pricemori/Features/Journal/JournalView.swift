@@ -20,7 +20,7 @@ struct JournalView: View {
         allProducts.filter { !$0.isArchived }
     }
 
-    private var rows: [Product] {
+    private var entries: [JournalEntry] {
         var products = activeProducts
         if favoritesOnly { products = products.filter(\.isFavorite) }
         if let storeFilter {
@@ -28,18 +28,30 @@ struct JournalView: View {
                 product.observations.contains { $0.store?.id == storeFilter.id }
             }
         }
+
+        var result = products.map { product in
+            JournalEntry(
+                product: product,
+                observation: storeFilter.flatMap {
+                    PriceMath.latestObservation(for: product, store: $0, condition: .regular)
+                } ?? product.latestRegularObservation
+            )
+        }
+
         switch sort {
         case .recent:
-            products.sort { lhs, rhs in
-                let left = latest(for: lhs)?.observedAt ?? lhs.createdAt
-                let right = latest(for: rhs)?.observedAt ?? rhs.createdAt
-                if left == right { return lhs.name.localizedCaseInsensitiveCompare(rhs.name) == .orderedAscending }
+            result.sort { lhs, rhs in
+                let left = lhs.observation?.observedAt ?? lhs.product.createdAt
+                let right = rhs.observation?.observedAt ?? rhs.product.createdAt
+                if left == right {
+                    return lhs.product.name.localizedCaseInsensitiveCompare(rhs.product.name) == .orderedAscending
+                }
                 return left > right
             }
         case .name:
-            products.sort { $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending }
+            result.sort { $0.product.name.localizedCaseInsensitiveCompare($1.product.name) == .orderedAscending }
         }
-        return products
+        return result
     }
 
     var body: some View {
@@ -89,7 +101,7 @@ struct JournalView: View {
                     }
                 }
 
-                if rows.isEmpty {
+                if entries.isEmpty {
                     VStack(alignment: .leading, spacing: 8) {
                         Text(favoritesOnly ? "No favorite products" : "No products match this filter")
                             .font(AppFont.inter(16, .medium))
@@ -102,16 +114,16 @@ struct JournalView: View {
                     }
                     .padding(.vertical, 24)
                 } else {
-                    VStack(spacing: 0) {
-                        ForEach(rows) { product in
-                            NavigationLink(value: AppRoute.product(product)) {
+                    LazyVStack(spacing: 0) {
+                        ForEach(entries) { entry in
+                            NavigationLink(value: AppRoute.product(entry.product)) {
                                 JournalProductRow(
-                                    product: product,
-                                    observation: latest(for: product)
+                                    product: entry.product,
+                                    observation: entry.observation
                                 )
                             }
                             .buttonStyle(.plain)
-                            if product.id != rows.last?.id {
+                            if entry.id != entries.last?.id {
                                 SeparatorLine()
                             }
                         }
@@ -170,12 +182,13 @@ struct JournalView: View {
         }
     }
 
-    private func latest(for product: Product) -> PriceObservation? {
-        if let storeFilter {
-            return PriceMath.latestObservation(for: product, store: storeFilter, condition: .regular)
-        }
-        return product.latestRegularObservation
-    }
+}
+
+private struct JournalEntry: Identifiable {
+    let product: Product
+    let observation: PriceObservation?
+
+    var id: UUID { product.id }
 }
 
 struct JournalProductRow: View {
@@ -253,10 +266,10 @@ struct MenuRow: View {
         Button(action: action) {
             HStack(alignment: .firstTextBaseline, spacing: 12) {
                 VStack(alignment: .leading, spacing: 4) {
-                    Text(title)
+                    Text(L10n.string(title))
                         .font(AppFont.inter(16, .medium))
                         .foregroundStyle(Theme.primaryText)
-                    Text(subtitle)
+                    Text(L10n.string(subtitle))
                         .font(AppFont.inter(14))
                         .foregroundStyle(Theme.secondaryText)
                         .multilineTextAlignment(.leading)

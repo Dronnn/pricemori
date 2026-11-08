@@ -14,6 +14,9 @@ struct PriceChartView: View {
             .sortedChronologically
     }
 
+    private var drawsEveryPoint: Bool { series.count <= 120 }
+    private var showsEveryAnnotation: Bool { series.count <= 12 }
+
     private func value(for observation: PriceObservation) -> Decimal? {
         basis == .unit ? observation.unitPrice : observation.effectivePackagePrice
     }
@@ -95,16 +98,20 @@ struct PriceChartView: View {
                                 .foregroundStyle(Theme.chartHalo.opacity(0.13))
                             }
 
-                            PointMark(
-                                x: .value("Date", observation.observedAt),
-                                y: .value("Unit price", value)
-                            )
-                            .symbolSize(isLatest ? 82 : 50)
-                            .foregroundStyle(isLatest ? Theme.accent : Theme.chartLine)
-                            .annotation(position: .top, spacing: 1) {
-                                Text(Format.number(displayValue, maxFraction: 2))
-                                    .font(AppFont.inter(14, .semibold))
-                                    .foregroundStyle(isLatest ? Theme.accent : Theme.primaryText)
+                            if drawsEveryPoint || isLatest {
+                                PointMark(
+                                    x: .value("Date", observation.observedAt),
+                                    y: .value("Unit price", value)
+                                )
+                                .symbolSize(isLatest ? 82 : 50)
+                                .foregroundStyle(isLatest ? Theme.accent : Theme.chartLine)
+                                .annotation(position: .top, spacing: 1) {
+                                    if showsEveryAnnotation || isLatest {
+                                        Text(Format.number(displayValue, maxFraction: 2))
+                                            .font(AppFont.inter(14, .semibold))
+                                            .foregroundStyle(isLatest ? Theme.accent : Theme.primaryText)
+                                    }
+                                }
                             }
                         }
                     }

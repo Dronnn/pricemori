@@ -66,6 +66,27 @@ Pricemori is deliberately manual. You decide what is worth tracking. A purchase 
 - **Privacy policy:** https://dronnn.github.io/pricemori/privacy.html
 - **Issues:** https://github.com/Dronnn/pricemori/issues
 
+## Languages
+
+Pricemori is translated into 17 languages: English, German, French, Spanish, Brazilian Portuguese, Polish, Russian, Ukrainian, Armenian, Japanese, Vietnamese, Simplified Chinese, Korean, Italian, Dutch, Turkish, and Indonesian. **System** follows the iPhone language.
+
+Settings → Language switches the interface immediately, without restarting. Dates, numbers, and generated price text follow the selected locale. The source of truth is `Localizable.xcstrings`; all copy is translated, including the donation screen and its tip names.
+
+<p align="center">
+  <img src="Screenshots/settings-german.png" width="220" alt="Pricemori settings in German">
+</p>
+
+## Performance
+
+The journal is built for a personal library of roughly a thousand products:
+
+- product and store lists are lazy, so only visible rows are created;
+- each journal row resolves its latest observation once, not once per sort and once per row;
+- chart point markers and value labels are reduced when an observation series gets dense;
+- the unit test suite seeds 1,000 products with 5,000 observations and bounds journal-row and period-change computation at 2 and 3 seconds.
+
+Backup, CSV, and restore are explicit infrequent operations; they process the journal on the main actor in this version. For very large journals, those operations are the place for a background/progress treatment in a future pass.
+
 ## Support the project
 
 The heart next to **+ Add** opens an optional tip screen. Donations are consumable App Store tips, not a subscription, and they unlock nothing. The app and its data stay free either way.
@@ -127,7 +148,9 @@ The suite covers:
 - CSV export,
 - first-price and repeat-entry flows, Undo, earlier observations, deletion, archiving, store creation, conditional offers, unknown package sizes, search, favorites, and discard confirmation;
 - visible tap targets of at least 44 points, checked in a UI test;
-- the six donation products load from the StoreKit test configuration, and the donation screen displays the tiers and updates the selected amount.
+- the six donation products load from the StoreKit test configuration, and the donation screen displays the tiers and updates the selected amount;
+- all 16 language bundles resolve, and switching to German in Settings updates the interface immediately;
+- a 1,000-product / 5,000-observation journal benchmark stays within the stated bounds.
 
 ## Project structure
 
