@@ -63,7 +63,7 @@ Pricemori is deliberately manual. You decide what is worth tracking. A purchase 
 
 Pricemori has no accounts, analytics, advertising, or network requests. There is no server and no shared price database.
 
-Your journal is stored locally with SwiftData. Backups and CSV files leave the app only when you explicitly export them. Replacing the journal is blocked until a safety backup has been exported.
+Your journal is stored locally with SwiftData. Backups and CSV files leave the app only when you explicitly export them. A privacy manifest declares no tracking, no collected data types, and no advertising identifiers. Replacing the journal is blocked until a safety backup has been exported.
 
 ## Built with
 
@@ -108,7 +108,8 @@ The suite covers:
 - currency rounding,
 - backup round-trip, merge conflicts, replacement, and version validation,
 - CSV export,
-- first-price and repeat-entry flows, Undo, earlier observations, deletion, archiving, and store creation.
+- first-price and repeat-entry flows, Undo, earlier observations, deletion, archiving, store creation, conditional offers, unknown package sizes, search, favorites, and discard confirmation;
+- visible tap targets of at least 44 points, checked in a UI test.
 
 ## Project structure
 
@@ -139,7 +140,7 @@ Not in this version: OCR, barcode catalogs, cloud sync, automatic promotions, bu
 
 ## Design
 
-Pricemori uses an open, editorial layout: a neutral background, serif headings for prices and products, Inter for controls and data, and one teal accent for the latest observation and primary actions. Color never replaces the signed number when a price goes up or down.
+Pricemori uses an adaptive light/dark launch screen, then an open, editorial layout: a neutral background, serif headings for prices and products, Inter for controls and data, and one teal accent for the latest observation and primary actions. Color never replaces the signed number when a price goes up or down.
 
 ---
 

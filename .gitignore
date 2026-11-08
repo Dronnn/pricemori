@@ -13,6 +13,7 @@ build/
 docs/
 logs/
 .refs/
+scripts/
 
 # Swift package caches, if added later
 .swiftpm/
