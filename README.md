@@ -108,7 +108,7 @@ The suite covers:
 - currency rounding,
 - backup round-trip, merge conflicts, replacement, and version validation,
 - CSV export,
-- first-price and repeat-entry flows, Undo, earlier observations, archiving, and store creation.
+- first-price and repeat-entry flows, Undo, earlier observations, deletion, archiving, and store creation.
 
 ## Project structure
 

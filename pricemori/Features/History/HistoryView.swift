@@ -155,7 +155,7 @@ struct HistoryView: View {
                                 observation: observation,
                                 onDelete: { snapshot in
                                     deletedSnapshot = snapshot
-                                    deletedStore = observation.store
+                                    deletedStore = scopedStore
                                     deletedMessage = "Observation removed"
                                 }
                             )

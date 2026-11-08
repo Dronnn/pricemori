@@ -49,6 +49,28 @@ final class WorkflowUITests: XCTestCase {
     }
 
     @MainActor
+    func testDeleteObservationAndUndo() throws {
+        let app = XCUIApplication()
+        app.launchArguments = ["-in-memory", "-seed-sample"]
+        app.launch()
+
+        app.buttons.containing(.staticText, identifier: "Buckwheat · Brand X").firstMatch.tap()
+        app.buttons.matching(NSPredicate(format: "label == %@", "History")).firstMatch.tap()
+
+        let observation = app.buttons.matching(NSPredicate(format: "label CONTAINS %@", "320 AMD / kg")).firstMatch
+        XCTAssertTrue(observation.waitForExistence(timeout: 5))
+        observation.tap()
+        app.buttons["Delete observation…"].tap()
+        XCTAssertTrue(app.alerts.firstMatch.waitForExistence(timeout: 5))
+        app.alerts.buttons["Delete"].tap()
+
+        XCTAssertTrue(app.staticTexts["Observation removed"].waitForExistence(timeout: 5))
+        app.buttons["Undo"].tap()
+        XCTAssertFalse(app.staticTexts["Observation removed"].exists)
+        XCTAssertTrue(app.buttons.matching(NSPredicate(format: "label CONTAINS %@", "320 AMD / kg")).firstMatch.waitForExistence(timeout: 5))
+    }
+
+    @MainActor
     func testAddStore() throws {
         let app = XCUIApplication()
         app.launchArguments = ["-in-memory", "-seed-sample"]
