@@ -148,7 +148,7 @@ The suite covers:
 - CSV export,
 - first-price and repeat-entry flows, Undo, earlier observations, deletion, archiving, store creation, conditional offers, unknown package sizes, search, favorites, and discard confirmation;
 - visible tap targets of at least 44 points, checked in a UI test;
-- the six donation products load from the StoreKit test configuration, and the donation screen displays the tiers and updates the selected amount;
+- the six donation products load from the StoreKit test configuration, the donation screen displays the tiers and updates the selected amount, and a test purchase completes into the thank-you state;
 - all 16 language bundles resolve, and switching to German in Settings updates the interface immediately;
 - a 1,000-product / 5,000-observation journal benchmark stays within the stated bounds.
 

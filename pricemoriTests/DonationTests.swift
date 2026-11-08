@@ -4,7 +4,7 @@ import Testing
 
 @MainActor
 struct DonationTests {
-    @Test func catalogLoadsAndPurchaseCompletes() async throws {
+    @Test func catalogLoadsAllTiers() async throws {
         let session = try SKTestSession(configurationFileNamed: "Pricemori")
         session.disableDialogs = true
         session.clearTransactions()
@@ -15,7 +15,23 @@ struct DonationTests {
         #expect(store.products.first?.displayPrice == "$2.99")
         #expect(store.products.contains { $0.id == "com.mrmaier.pricemori.tip.extraordinary" })
 
-        #expect(store.products.contains { $0.id == "com.mrmaier.pricemori.tip.medium" })
+        session.clearTransactions()
+    }
+
+    @Test func purchaseCompletesAsThankYou() async throws {
+        let session = try SKTestSession(configurationFileNamed: "Pricemori")
+        session.disableDialogs = true
+        session.clearTransactions()
+
+        let store = DonationStore()
+        await store.loadProducts(force: true)
+        let product = try #require(store.product(for: DonationTier.all[0]))
+
+        await store.purchase(product)
+
+        #expect(store.feedback == .thankYou)
+        #expect(store.purchasingProductID == nil)
+
         session.clearTransactions()
     }
 }
