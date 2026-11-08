@@ -135,6 +135,7 @@ struct HeaderActionButton: View {
 
 struct PrimaryButton: View {
     let title: String
+    var isEnabled: Bool = true
     var action: () -> Void
 
     var body: some View {
@@ -146,8 +147,10 @@ struct PrimaryButton: View {
                 .padding(.vertical, 12)
                 .frame(maxWidth: .infinity, minHeight: 48)
                 .background(Theme.accent, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+                .opacity(isEnabled ? 1 : 0.45)
         }
         .buttonStyle(.plain)
+        .disabled(!isEnabled)
     }
 }
 

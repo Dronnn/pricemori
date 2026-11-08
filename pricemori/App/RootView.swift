@@ -62,6 +62,8 @@ struct RootView: View {
             StoreDetailView(store: store)
         case .settings:
             SettingsView()
+        case .support:
+            DonationView(backLabel: "Settings")
         case .entryDefaults:
             EntryDefaultsView()
         case .backup:

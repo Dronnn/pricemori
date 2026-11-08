@@ -38,6 +38,7 @@ enum AppRoute: Hashable {
     case stores
     case store(StoreLocation)
     case settings
+    case support
     case entryDefaults
     case backup
     case archivedProducts

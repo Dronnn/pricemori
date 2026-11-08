@@ -71,7 +71,7 @@
          </BuildableReference>
       </BuildableProductRunnable>
       <StoreKitConfigurationFileReference
-         identifier = "../pricemori/Resources/Products.storekit">
+         identifier = "../Configuration/Pricemori.storekit">
       </StoreKitConfigurationFileReference>
    </LaunchAction>
    <ProfileAction

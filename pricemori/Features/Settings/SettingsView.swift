@@ -46,6 +46,16 @@ struct SettingsView: View {
                 }
                 SeparatorLine()
 
+                FieldLabel(text: "Support")
+                    .padding(.top, 28)
+                OpenRow(
+                    title: "Support Pricemori",
+                    subtitle: "Optional one-time tips"
+                ) {
+                    router.push(.support)
+                }
+                SeparatorLine()
+
                 InfoText(text: "Appearance and text size follow your iPhone. Core recording and charts work offline.")
                     .padding(.top, 24)
             }

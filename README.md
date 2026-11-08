@@ -66,6 +66,16 @@ Pricemori is deliberately manual. You decide what is worth tracking. A purchase 
 - **Privacy policy:** https://dronnn.github.io/pricemori/privacy.html
 - **Issues:** https://github.com/Dronnn/pricemori/issues
 
+## Support the project
+
+The heart next to **+ Add** opens an optional tip screen. Donations are consumable App Store tips, not a subscription, and they unlock nothing. The app and its data stay free either way.
+
+Prices are supplied by the App Store for the user’s storefront. Six base tiers are configured, with lower-price storefronts set separately in App Store Connect so the same tip reflects local purchasing power.
+
+<p align="center">
+  <img src="Screenshots/donation-light.png" width="220" alt="Optional donation screen">
+</p>
+
 ## Privacy
 
 Pricemori has no accounts, analytics, advertising, or network requests. There is no server and no shared price database.
@@ -116,7 +126,8 @@ The suite covers:
 - backup round-trip, merge conflicts, replacement, and version validation,
 - CSV export,
 - first-price and repeat-entry flows, Undo, earlier observations, deletion, archiving, store creation, conditional offers, unknown package sizes, search, favorites, and discard confirmation;
-- visible tap targets of at least 44 points, checked in a UI test.
+- visible tap targets of at least 44 points, checked in a UI test;
+- the six donation products load from the StoreKit test configuration, and the donation screen displays the tiers and updates the selected amount.
 
 ## Project structure
 

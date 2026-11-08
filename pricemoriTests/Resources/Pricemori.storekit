@@ -1,0 +1,107 @@
+{
+  "identifier": "7C9C858E-C0B3-46F0-A0DD-A31159CA0C5A",
+  "nonRenewingSubscriptions": [],
+  "products": [
+    {
+      "displayPrice": "2.99",
+      "familyShareable": false,
+      "internalID": "7BE31822-D6BA-4D98-B6CC-D153808357B4",
+      "localizations": [
+        {
+          "description": "Optional tip. No features are unlocked.",
+          "displayName": "Small tip",
+          "locale": "en_US"
+        }
+      ],
+      "productID": "com.mrmaier.pricemori.tip.small",
+      "referenceName": "Small tip",
+      "type": "Consumable"
+    },
+    {
+      "displayPrice": "4.99",
+      "familyShareable": false,
+      "internalID": "5EF2E239-6B3F-4E95-B0BC-C1D7DE87E5F6",
+      "localizations": [
+        {
+          "description": "Optional tip. No features are unlocked.",
+          "displayName": "Medium tip",
+          "locale": "en_US"
+        }
+      ],
+      "productID": "com.mrmaier.pricemori.tip.medium",
+      "referenceName": "Medium tip",
+      "type": "Consumable"
+    },
+    {
+      "displayPrice": "7.99",
+      "familyShareable": false,
+      "internalID": "0EFCE45F-0CCB-4D18-8ABD-6820D4671F3F",
+      "localizations": [
+        {
+          "description": "Optional tip. No features are unlocked.",
+          "displayName": "Large tip",
+          "locale": "en_US"
+        }
+      ],
+      "productID": "com.mrmaier.pricemori.tip.large",
+      "referenceName": "Large tip",
+      "type": "Consumable"
+    },
+    {
+      "displayPrice": "19.99",
+      "familyShareable": false,
+      "internalID": "D464D40B-A47D-40E1-8058-29E95F13E6C7",
+      "localizations": [
+        {
+          "description": "Optional tip. No features are unlocked.",
+          "displayName": "Generous tip",
+          "locale": "en_US"
+        }
+      ],
+      "productID": "com.mrmaier.pricemori.tip.generous",
+      "referenceName": "Generous tip",
+      "type": "Consumable"
+    },
+    {
+      "displayPrice": "49.99",
+      "familyShareable": false,
+      "internalID": "C54FCC9D-DABD-4EFA-88F3-CC753F37B7A6",
+      "localizations": [
+        {
+          "description": "Optional tip. No features are unlocked.",
+          "displayName": "Patron tip",
+          "locale": "en_US"
+        }
+      ],
+      "productID": "com.mrmaier.pricemori.tip.patron",
+      "referenceName": "Patron tip",
+      "type": "Consumable"
+    },
+    {
+      "displayPrice": "99.99",
+      "familyShareable": false,
+      "internalID": "D2B32EEB-D95F-46B9-9E70-35EDD5033D0D",
+      "localizations": [
+        {
+          "description": "Optional tip. No features are unlocked.",
+          "displayName": "Extraordinary tip",
+          "locale": "en_US"
+        }
+      ],
+      "productID": "com.mrmaier.pricemori.tip.extraordinary",
+      "referenceName": "Extraordinary tip",
+      "type": "Consumable"
+    }
+  ],
+  "settings": {
+    "_failTransactionsEnabled": false,
+    "_locale": "en_US",
+    "_storefront": "USA",
+    "_storeKitErrors": []
+  },
+  "subscriptionGroups": [],
+  "version": {
+    "major": 3,
+    "minor": 0
+  }
+}

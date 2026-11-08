@@ -188,6 +188,31 @@ final class WorkflowUITests: XCTestCase {
     }
 
     @MainActor
+    func testDonationScreenShowsTiersAndSelection() throws {
+        let app = XCUIApplication()
+        app.launchArguments = ["-in-memory", "-seed-sample"]
+        app.launch()
+
+        app.buttons["Support Pricemori"].tap()
+        XCTAssertTrue(app.staticTexts["Support Pricemori"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.staticTexts["CHOOSE AN AMOUNT"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.buttons.matching(NSPredicate(format: "label CONTAINS %@", "$2.99")).firstMatch.waitForExistence(timeout: 5))
+
+        let screenshot = XCTAttachment(screenshot: XCUIScreen.main.screenshot())
+        screenshot.name = "donation-screen"
+        screenshot.lifetime = .keepAlways
+        add(screenshot)
+
+        let generous = app.buttons.matching(NSPredicate(format: "label CONTAINS %@", "$19.99")).firstMatch
+        XCTAssertTrue(generous.waitForExistence(timeout: 5))
+        generous.tap()
+        XCTAssertTrue(app.buttons.matching(NSPredicate(format: "label CONTAINS %@", "Donate")).firstMatch.waitForExistence(timeout: 5))
+
+        app.buttons["Close"].tap()
+        XCTAssertTrue(app.staticTexts["Journal"].waitForExistence(timeout: 5))
+    }
+
+    @MainActor
     func testVisibleTapTargetsMeet44Points() throws {
         let app = XCUIApplication()
         app.launchArguments = ["-in-memory", "-seed-sample"]

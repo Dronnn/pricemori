@@ -12,6 +12,7 @@ struct JournalView: View {
     @State private var showFilters = false
     @State private var showMenu = false
     @State private var showAdd = false
+    @State private var showDonation = false
     @State private var pendingProduct: Product?
     @State private var pendingFirstSave = false
 
@@ -49,7 +50,21 @@ struct JournalView: View {
             backAction: { showMenu = true },
             topPadding: 8,
             trailing: {
-                HeaderActionButton(title: "+ Add") { showAdd = true }
+                HStack(spacing: 2) {
+                    Button {
+                        showDonation = true
+                    } label: {
+                        Image(systemName: "heart")
+                            .font(.system(size: 19, weight: .regular))
+                            .foregroundStyle(Theme.primaryText)
+                            .frame(width: 44, height: 44)
+                            .contentShape(Rectangle())
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityLabel("Support Pricemori")
+
+                    HeaderActionButton(title: "+ Add") { showAdd = true }
+                }
             }
         ) {
             VStack(alignment: .leading, spacing: 16) {
@@ -136,6 +151,9 @@ struct JournalView: View {
                 sort: $sort,
                 stores: allStores.filter { !$0.isArchived }
             )
+        }
+        .fullScreenCover(isPresented: $showDonation) {
+            DonationView()
         }
         .fullScreenCover(isPresented: $showAdd, onDismiss: {
             if let pendingProduct {
