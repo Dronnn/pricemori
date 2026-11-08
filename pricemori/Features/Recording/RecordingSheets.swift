@@ -384,3 +384,32 @@ struct DateSourceView: View {
         }
     }
 }
+
+
+struct DiscardDraftView: View {
+    let onKeepEditing: () -> Void
+    let onDiscard: () -> Void
+
+    var body: some View {
+        ScreenScaffold(
+            title: "Discard changes?",
+            backLabel: "Cancel",
+            showsBackChevron: false,
+            backAction: onKeepEditing,
+            footer: {
+                VStack(spacing: 0) {
+                    PrimaryButton(title: "Keep editing", action: onKeepEditing)
+                    SecondaryButton(title: "Discard draft", color: Theme.error, action: onDiscard)
+                }
+            }
+        ) {
+            VStack(alignment: .leading, spacing: 16) {
+                Text("You have unsaved changes")
+                    .font(AppFont.inter(16, .medium))
+                    .foregroundStyle(Theme.primaryText)
+                InfoText(text: "Keep editing to finish your entry, or discard this draft.")
+                InfoText(text: "Your saved history is kept. You will return to the product.")
+            }
+        }
+    }
+}

@@ -147,6 +147,53 @@ struct PricemoriTests {
         #expect(PriceMath.latestObservation(for: Product(name: "Test"), condition: .regular) == nil)
     }
 
+    @Test func nineHundredGramsVersusOneKilogram() {
+        let store = StoreLocation(name: "SAS", branch: "Komitas 12")
+        let previous = observation(price: 300, quantity: 900, unit: .gram, store: store, date: date(0))
+        let current = observation(price: 320, quantity: 1, unit: .kilogram, store: store, date: date(28))
+
+        let change = PriceMath.change(current: current, previous: previous)
+        #expect(change != nil)
+        #expect(abs(NSDecimalNumber(decimal: previous.unitPrice ?? 0).doubleValue - 333.3333) < 0.001)
+        #expect(current.unitPrice == 320)
+        #expect(abs(NSDecimalNumber(decimal: change?.amount ?? 0).doubleValue + 13.3333) < 0.001)
+        #expect(abs(NSDecimalNumber(decimal: change?.percent ?? 0).doubleValue + 4.0) < 0.001)
+    }
+
+    @Test func staleAgeIsReported() {
+        let now = date(30)
+        #expect(Format.relativeAge(date(0), relativeTo: now) == "30 days ago")
+        #expect(Format.relativeAge(date(29), relativeTo: now) == "Yesterday")
+        #expect(Format.relativeAge(now, relativeTo: now) == "Today")
+    }
+
+    @Test func multiBuyComparisonUsesPerPackagePrice() {
+        let store = StoreLocation(name: "SAS", branch: "Komitas 12")
+        let previous = observation(
+            price: 900,
+            quantity: 1,
+            unit: .kilogram,
+            condition: .multiBuy,
+            multiBuyMinimum: 3,
+            store: store,
+            date: date(0)
+        )
+        let current = observation(
+            price: 960,
+            quantity: 1,
+            unit: .kilogram,
+            condition: .multiBuy,
+            multiBuyMinimum: 3,
+            store: store,
+            date: date(28)
+        )
+
+        let change = PriceMath.change(current: current, previous: previous)
+        #expect(change?.amount == 20)
+        #expect(abs(NSDecimalNumber(decimal: change?.percent ?? 0).doubleValue - 6.6666) < 0.001)
+        #expect(Format.percent(change?.percent ?? 0) == "+6.7%")
+    }
+
     @Test func multiBuyUsesPerPackagePrice() {
         let store = StoreLocation(name: "SAS", branch: "Komitas 12")
         let multi = observation(
@@ -209,6 +256,45 @@ struct PricemoriTests {
 
         _ = try BackupService.applyMerge(plan: conflictPlan, choices: [observation.id: .backup], context: context)
         #expect(observation.price == 999)
+    }
+
+    @Test func mergeIntoEmptyJournalInsertsProductsStoresAndObservations() throws {
+        let schema = Schema([Product.self, StoreLocation.self, PriceObservation.self])
+        let sourceContainer = try ModelContainer(for: schema, configurations: [ModelConfiguration(schema: schema, isStoredInMemoryOnly: true)])
+        let source = sourceContainer.mainContext
+
+        let product = Product(name: "Rice", brand: "Brand R")
+        let store = StoreLocation(name: "Nor Zovq", branch: "Abovyan", city: "Yerevan")
+        source.insert(product)
+        source.insert(store)
+        source.insert(PriceObservation(
+            price: 500,
+            currencyCode: "AMD",
+            observedAt: date(0),
+            packageQuantity: 1,
+            packageUnit: .kilogram,
+            product: product,
+            store: store
+        ))
+        try source.save()
+        let backup = try BackupService.makeBackup(context: source)
+
+        let targetContainer = try ModelContainer(for: schema, configurations: [ModelConfiguration(schema: schema, isStoredInMemoryOnly: true)])
+        let target = targetContainer.mainContext
+        let plan = try BackupService.plan(backup: backup, context: target)
+        #expect(plan.newProducts == 1)
+        #expect(plan.newStores == 1)
+        #expect(plan.newObservations == 1)
+        #expect(plan.conflicts.isEmpty)
+
+        let result = try BackupService.applyMerge(plan: plan, choices: [:], context: target)
+        #expect(result.addedObservations == 1)
+        #expect(try target.fetchCount(FetchDescriptor<Product>()) == 1)
+        #expect(try target.fetchCount(FetchDescriptor<StoreLocation>()) == 1)
+        #expect(try target.fetchCount(FetchDescriptor<PriceObservation>()) == 1)
+        let imported = try target.fetch(FetchDescriptor<PriceObservation>()).first
+        #expect(imported?.product?.name == "Rice")
+        #expect(imported?.store?.displayName == "Nor Zovq · Abovyan")
     }
 
     @Test func replacementRestoresBackup() throws {

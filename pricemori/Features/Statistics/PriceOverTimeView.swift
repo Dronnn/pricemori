@@ -67,14 +67,10 @@ struct PriceOverTimeView: View {
 
     var body: some View {
         ScreenScaffold(
-            title: "Price over time",
+            title: filteredObservations.count < 2 ? "More data needed" : "Price over time",
             backLabel: backLabel,
             trailing: {
-                Button("Filter") { showFilters = true }
-                    .font(AppFont.inter(15, .medium))
-                    .foregroundStyle(Theme.primaryText)
-                    .buttonStyle(.plain)
-                    .frame(minHeight: 44)
+                HeaderActionButton(title: "Filter") { showFilters = true }
             }
         ) {
             VStack(alignment: .leading, spacing: 0) {
@@ -116,9 +112,36 @@ struct PriceOverTimeView: View {
                 }
                 .padding(.top, 20)
 
-                if filteredObservations.isEmpty {
-                    InfoText(text: "No recorded observations match these filters. No daily values are generated.")
-                        .padding(.top, 30)
+                if filteredObservations.count < 2 {
+                    VStack(alignment: .leading, spacing: 12) {
+                        Text("Not enough comparable prices")
+                            .font(AppFont.inter(16, .medium))
+                            .foregroundStyle(Theme.primaryText)
+                        Text(product.displayName)
+                            .font(AppFont.inter(16, .medium))
+                            .foregroundStyle(Theme.primaryText)
+
+                        if let only = filteredObservations.first {
+                            Text("One observation matches these filters\n\(only.unitPrice.map { Format.number($0, maxFraction: 2) } ?? Format.money(only.price, currency: only.currencyCode)) \(only.currencyCode) / \(only.baseUnitSymbol ?? "package") · \(Format.date(only.observedAt))")
+                                .font(AppFont.inter(14))
+                                .foregroundStyle(Theme.secondaryText)
+                                .lineSpacing(3)
+                        } else {
+                            Text("No recorded observations match these filters")
+                                .font(AppFont.inter(14))
+                                .foregroundStyle(Theme.secondaryText)
+                        }
+
+                        InfoText(text: "A price change needs two observations with the same branch, currency, units and conditions.")
+                            .padding(.top, 4)
+
+                        PrimaryButton(title: "Record another observation") { showRecord = true }
+                        SecondaryButton(title: "Change chart filters") { showFilters = true }
+
+                        InfoText(text: "One price is still useful. Keep it visible in history without inventing a trend.")
+                            .padding(.top, 10)
+                    }
+                    .padding(.top, 18)
                 } else {
                     PriceChartView(
                         observations: filteredObservations,
@@ -149,31 +172,19 @@ struct PriceOverTimeView: View {
                         }
                         .padding(.top, 10)
                     }
-                }
 
-                VStack(alignment: .leading, spacing: 4) {
-                    if let first = filteredObservations.first, let last = filteredObservations.last, let range {
-                        if let selectedChange {
-                            Text("\(Format.number(range.minimum.unitPrice ?? 0, maxFraction: 2)) to \(Format.number(range.maximum.unitPrice ?? 0, maxFraction: 2)) \(current?.currencyCode ?? "AMD") / \(unitLabel) · \(Format.percent(selectedChange.percent))")
+                    VStack(alignment: .leading, spacing: 4) {
+                        if let first = filteredObservations.first, let last = filteredObservations.last, let range {
+                            if let selectedChange {
+                                Text("\(Format.number(range.minimum.unitPrice ?? 0, maxFraction: 2)) to \(Format.number(range.maximum.unitPrice ?? 0, maxFraction: 2)) \(current?.currencyCode ?? "AMD") / \(unitLabel) · \(Format.percent(selectedChange.percent))")
+                            }
+                            Text("Selected period: \(Format.periodRange(from: first.observedAt, to: last.observedAt))\n\(filteredObservations.count) observations")
                         }
-                        Text("Selected period: \(Format.periodRange(from: first.observedAt, to: last.observedAt))\n\(filteredObservations.count) \(filteredObservations.count == 1 ? "observation" : "observations")")
-                    } else {
-                        Text("Not enough comparable prices in this period.")
                     }
-                }
-                .font(AppFont.inter(14))
-                .foregroundStyle(Theme.secondaryText)
-                .lineSpacing(3)
-                .padding(.top, 14)
-
-                if filteredObservations.count < 2 {
-                    InfoText(text: "A price change needs two observations with the same branch, currency, units and conditions. One price is still useful without inventing a trend.")
-                        .padding(.top, 22)
-                    VStack(spacing: 2) {
-                        SecondaryButton(title: "Record another observation") { showRecord = true }
-                        SecondaryButton(title: "Change chart filters") { showFilters = true }
-                    }
-                    .padding(.top, 10)
+                    .font(AppFont.inter(14))
+                    .foregroundStyle(Theme.secondaryText)
+                    .lineSpacing(3)
+                    .padding(.top, 14)
                 }
 
                 SecondaryButton(title: "View observation list") {

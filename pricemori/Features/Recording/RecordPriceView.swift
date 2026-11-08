@@ -18,7 +18,7 @@ struct RecordPriceView: View {
     @State private var showCurrency = false
     @State private var showStorePicker = false
     @State private var showValidation = false
-    @State private var showDiscardAlert = false
+    @State private var showDiscard = false
     @State private var didLoad = false
 
     private var latestAtStore: PriceObservation? {
@@ -154,11 +154,14 @@ struct RecordPriceView: View {
                     loadTemplate(for: store)
                 }
             }
-            .alert("Discard changes?", isPresented: $showDiscardAlert) {
-                Button("Keep editing", role: .cancel) {}
-                Button("Discard draft", role: .destructive) { dismiss() }
-            } message: {
-                Text("You have unsaved changes. Your saved history is kept.")
+            .fullScreenCover(isPresented: $showDiscard) {
+                DiscardDraftView(
+                    onKeepEditing: { showDiscard = false },
+                    onDiscard: {
+                        showDiscard = false
+                        dismiss()
+                    }
+                )
             }
         }
     }
@@ -196,7 +199,7 @@ struct RecordPriceView: View {
 
     private func cancelTapped() {
         if hasDraftChanges {
-            showDiscardAlert = true
+            showDiscard = true
         } else {
             dismiss()
         }

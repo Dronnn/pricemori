@@ -244,11 +244,7 @@ struct ObservationDetailView: View {
             title: "Observation",
             backLabel: "History",
             trailing: {
-                Button("Correct") { showCorrect = true }
-                    .font(AppFont.inter(15, .medium))
-                    .foregroundStyle(Theme.primaryText)
-                    .buttonStyle(.plain)
-                    .frame(minHeight: 44)
+                HeaderActionButton(title: "Correct") { showCorrect = true }
             }
         ) {
             VStack(alignment: .leading, spacing: 0) {

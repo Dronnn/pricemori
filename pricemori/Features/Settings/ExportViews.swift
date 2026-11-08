@@ -75,17 +75,19 @@ struct ExportJournalView: View {
     @State private var fileName = ""
     @State private var pendingKind: ExportSummary.Kind = .fullBackup
     @State private var summary: ExportSummary?
-    @State private var exportError = false
+    @State private var exportFailure = false
     @State private var csvRows = 0
 
     var body: some View {
         ScreenScaffold(
-            title: summary == nil ? "Export journal" : (summary?.kind == .fullBackup ? "Backup exported" : "CSV exported"),
+            title: exportFailure ? "Export failed" : (summary == nil ? "Export journal" : (summary?.kind == .fullBackup ? "Backup exported" : "CSV exported")),
             backLabel: summary == nil ? "Cancel" : "Done",
             showsBackChevron: false,
             backAction: { dismiss() }
         ) {
-            if let summary {
+            if exportFailure {
+                failureContent
+            } else if let summary {
                 completionContent(summary)
             } else {
                 optionsContent
@@ -116,14 +118,29 @@ struct ExportJournalView: View {
                     )
                 }
             case .failure:
-                exportError = true
+                exportFailure = true
             }
         }
-        .alert("Export failed", isPresented: $exportError) {
-            Button("Try export again") { showExporter = true }
-            Button("Cancel", role: .cancel) {}
-        } message: {
-            Text("There may not be enough free space, or the chosen destination is unavailable. Your journal is safe on this device.")
+    }
+
+    private var failureContent: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            Text("The file was not saved")
+                .font(AppFont.serif(32))
+                .foregroundStyle(Theme.primaryText)
+            InfoText(text: "There may not be enough free space, or the chosen destination is unavailable.")
+            InfoText(text: "Your journal is safe on this device. No observations were removed.")
+            PrimaryButton(title: "Try export again") {
+                exportFailure = false
+                if pendingKind == .fullBackup {
+                    exportFullBackup()
+                } else {
+                    exportCSV()
+                }
+            }
+            SecondaryButton(title: "Back to backup options") {
+                exportFailure = false
+            }
         }
     }
 
@@ -200,7 +217,7 @@ struct ExportJournalView: View {
             pendingKind = .fullBackup
             showExporter = true
         } catch {
-            exportError = true
+            exportFailure = true
         }
     }
 
@@ -214,7 +231,7 @@ struct ExportJournalView: View {
             pendingKind = .csv
             showExporter = true
         } catch {
-            exportError = true
+            exportFailure = true
         }
     }
 

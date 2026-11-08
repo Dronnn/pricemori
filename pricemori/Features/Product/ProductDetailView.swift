@@ -68,11 +68,7 @@ struct ProductDetailView: View {
             backLabel: backLabel,
             topPadding: 0,
             trailing: {
-                Button("Edit") { showEdit = true }
-                    .font(AppFont.inter(15, .medium))
-                    .foregroundStyle(Theme.primaryText)
-                    .buttonStyle(.plain)
-                    .frame(minHeight: 44)
+                HeaderActionButton(title: "Edit") { showEdit = true }
             },
             footer: {
                 if series.count <= 1, primary != nil {
@@ -243,9 +239,25 @@ struct ProductDetailView: View {
         .fullScreenCover(isPresented: $showRecord) {
             RecordPriceView(product: product, initialStore: primaryStore) { observation in
                 savedObservation = observation
-                savedMessage = "Price saved · \(Format.relativeAge(observation.observedAt))"
+                savedMessage = saveFeedback(for: observation)
             }
         }
+    }
+
+    private func saveFeedback(for observation: PriceObservation) -> String {
+        guard observation.sizeKnown else {
+            return "Price saved · Package size unknown"
+        }
+        if let previous = PriceMath.previousComparable(for: observation, among: product.observations),
+           previous.packageQuantity != observation.packageQuantity
+            || previous.packageUnit != observation.packageUnit {
+            let old = [previous.packageQuantity.map { NSDecimalNumber(decimal: $0).stringValue }, previous.packageUnit?.symbol]
+                .compactMap { $0 }.joined(separator: " ")
+            let new = [observation.packageQuantity.map { NSDecimalNumber(decimal: $0).stringValue }, observation.packageUnit?.symbol]
+                .compactMap { $0 }.joined(separator: " ")
+            return "Size change saved · \(old) to \(new)"
+        }
+        return "Price saved · \(Format.relativeAge(observation.observedAt))"
     }
 
     private func recordNoChange() {

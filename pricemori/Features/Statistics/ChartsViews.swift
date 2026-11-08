@@ -70,11 +70,7 @@ struct StoreHistoriesView: View {
             title: "Store histories",
             backLabel: "Back",
             trailing: {
-                Button("Filter") { showPeriod = true }
-                    .font(AppFont.inter(15, .medium))
-                    .foregroundStyle(Theme.primaryText)
-                    .buttonStyle(.plain)
-                    .frame(minHeight: 44)
+                HeaderActionButton(title: "Filter") { showPeriod = true }
             }
         ) {
             VStack(alignment: .leading, spacing: 0) {
@@ -290,11 +286,7 @@ struct PeriodChangesView: View {
             title: "Period changes",
             backLabel: backLabel,
             trailing: {
-                Button("Filter") { showFilter = true }
-                    .font(AppFont.inter(15, .medium))
-                    .foregroundStyle(Theme.primaryText)
-                    .buttonStyle(.plain)
-                    .frame(minHeight: 44)
+                HeaderActionButton(title: "Filter") { showFilter = true }
             }
         ) {
             VStack(alignment: .leading, spacing: 0) {
@@ -495,11 +487,7 @@ struct PackageVsUnitView: View {
             title: "Package vs unit",
             backLabel: "Back",
             trailing: {
-                Button("Filter") { showPeriod = true }
-                    .font(AppFont.inter(15, .medium))
-                    .foregroundStyle(Theme.primaryText)
-                    .buttonStyle(.plain)
-                    .frame(minHeight: 44)
+                HeaderActionButton(title: "Filter") { showPeriod = true }
             }
         ) {
             VStack(alignment: .leading, spacing: 0) {

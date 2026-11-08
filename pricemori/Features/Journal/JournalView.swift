@@ -49,11 +49,7 @@ struct JournalView: View {
             backAction: { showMenu = true },
             topPadding: 8,
             trailing: {
-                Button("+ Add") { showAdd = true }
-                    .font(AppFont.inter(15, .medium))
-                    .foregroundStyle(Theme.primaryText)
-                    .buttonStyle(.plain)
-                    .frame(minHeight: 44)
+                HeaderActionButton(title: "+ Add") { showAdd = true }
             }
         ) {
             VStack(alignment: .leading, spacing: 16) {
@@ -70,8 +66,8 @@ struct JournalView: View {
                     FilterChip(title: "All", isSelected: !favoritesOnly) {
                         favoritesOnly = false
                     }
-                    FilterChip(title: "Favorites", isSelected: favoritesOnly) {
-                        favoritesOnly = true
+                    FilterChip(title: "Favorites", isSelected: false) {
+                        router.push(.favorites)
                     }
                     FilterChip(title: "Filter / sort", isSelected: storeFilter != nil) {
                         showFilters = true

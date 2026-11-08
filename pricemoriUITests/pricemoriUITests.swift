@@ -67,8 +67,9 @@ final class PricemoriUITests: XCTestCase {
 
         app.buttons["Save first price"].tap()
         XCTAssertTrue(app.staticTexts["Apples"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.staticTexts["First price saved"].waitForExistence(timeout: 5))
+        app.buttons["Back to Journal"].tap()
 
-        app.buttons["Journal"].tap()
         XCTAssertTrue(app.staticTexts["Apples"].waitForExistence(timeout: 5))
         let row = app.staticTexts.containing(NSPredicate(format: "label CONTAINS %@", "100 AMD / 1 kg")).firstMatch
         XCTAssertTrue(row.waitForExistence(timeout: 5))

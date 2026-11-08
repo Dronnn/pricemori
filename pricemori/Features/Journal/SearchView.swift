@@ -103,6 +103,7 @@ struct SearchView: View {
 struct FavoritesView: View {
     @EnvironmentObject private var router: AppRouter
     @Environment(\.modelContext) private var context
+    @Environment(\.dismiss) private var dismiss
     @Query(sort: \Product.createdAt) private var products: [Product]
 
     private var activeProducts: [Product] {
@@ -116,6 +117,22 @@ struct FavoritesView: View {
     var body: some View {
         ScreenScaffold(title: "Favorites", backLabel: "Journal") {
             VStack(alignment: .leading, spacing: 16) {
+                Button {
+                    dismiss()
+                } label: {
+                    HStack {
+                        Text("All products")
+                            .font(AppFont.inter(16, .medium))
+                            .foregroundStyle(Theme.primaryText)
+                        Spacer()
+                    }
+                    .frame(minHeight: 44)
+                    .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+
+                SeparatorLine()
+
                 if favorites.isEmpty {
                     VStack(alignment: .leading, spacing: 14) {
                         Text("No favorites yet")

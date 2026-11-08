@@ -26,11 +26,7 @@ struct StoresView: View {
             backLabel: "Journal",
             topPadding: 8,
             trailing: {
-                Button("+ Add") { showAdd = true }
-                    .font(AppFont.inter(15, .medium))
-                    .foregroundStyle(Theme.primaryText)
-                    .buttonStyle(.plain)
-                    .frame(minHeight: 44)
+                HeaderActionButton(title: "+ Add") { showAdd = true }
             },
             footer: {
                 VStack(spacing: 0) {
@@ -130,11 +126,7 @@ struct StoreDetailView: View {
             title: "Store",
             backLabel: "Stores",
             trailing: {
-                Button("Edit") { showEdit = true }
-                    .font(AppFont.inter(15, .medium))
-                    .foregroundStyle(Theme.primaryText)
-                    .buttonStyle(.plain)
-                    .frame(minHeight: 44)
+                HeaderActionButton(title: "Edit") { showEdit = true }
             }
         ) {
             VStack(alignment: .leading, spacing: 0) {
@@ -260,6 +252,8 @@ struct ArchivedStoresView: View {
                                 .font(AppFont.inter(15, .medium))
                                 .foregroundStyle(Theme.secondaryText)
                                 .buttonStyle(.plain)
+                                .frame(minHeight: 44)
+                                .contentShape(Rectangle())
                             }
                             .frame(maxWidth: .infinity, alignment: .leading)
                             .padding(.vertical, 14)
@@ -331,6 +325,8 @@ struct ArchivedProductsView: View {
                                 .font(AppFont.inter(15, .medium))
                                 .foregroundStyle(Theme.secondaryText)
                                 .buttonStyle(.plain)
+                                .frame(minHeight: 44)
+                                .contentShape(Rectangle())
                             }
                             .frame(maxWidth: .infinity, alignment: .leading)
                             .padding(.vertical, 14)

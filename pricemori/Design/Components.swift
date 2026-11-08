@@ -117,6 +117,22 @@ struct ScreenHeader: View {
     }
 }
 
+struct HeaderActionButton: View {
+    let title: String
+    var action: () -> Void
+
+    var body: some View {
+        Button(action: action) {
+            Text(title)
+                .font(AppFont.inter(15, .medium))
+                .foregroundStyle(Theme.primaryText)
+                .frame(minWidth: 44, minHeight: 44, alignment: .trailing)
+                .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+    }
+}
+
 struct PrimaryButton: View {
     let title: String
     var action: () -> Void
@@ -288,10 +304,14 @@ struct SectionTitle: View {
                 .foregroundStyle(Theme.primaryText)
             Spacer()
             if let actionTitle, let action {
-                Button(actionTitle, action: action)
-                    .font(AppFont.inter(16, .semibold))
-                    .foregroundStyle(Theme.secondaryText)
-                    .buttonStyle(.plain)
+                Button(action: action) {
+                    Text(actionTitle)
+                        .font(AppFont.inter(16, .semibold))
+                        .foregroundStyle(Theme.secondaryText)
+                        .frame(minHeight: 44)
+                        .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
             }
         }
     }

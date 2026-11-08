@@ -116,10 +116,14 @@ struct StatisticsView: View {
                         Text("Regular · \(currency) / \(unitLabel)")
                             .font(AppFont.inter(14))
                             .foregroundStyle(Theme.secondaryText)
-                        Button("Change scope") { showScope = true }
-                            .font(AppFont.inter(14))
-                            .foregroundStyle(Theme.secondaryText)
-                            .buttonStyle(.plain)
+                        Button(action: { showScope = true }) {
+                            Text("Change scope")
+                                .font(AppFont.inter(14))
+                                .foregroundStyle(Theme.secondaryText)
+                                .frame(minHeight: 44)
+                                .contentShape(Rectangle())
+                        }
+                        .buttonStyle(.plain)
                     }
                     .padding(.top, 4)
                 } else {
