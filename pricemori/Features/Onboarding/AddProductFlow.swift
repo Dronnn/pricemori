@@ -280,11 +280,12 @@ struct FirstPriceView: View {
         let product = productDraft.makeProduct()
         let cleanedName = storeName.trimmingCharacters(in: .whitespaces)
         let cleanedBranch = branch.trimmingCharacters(in: .whitespaces)
-        let store = stores.first {
+        let existingStore = stores.first {
             !$0.isArchived
                 && $0.name.caseInsensitiveCompare(cleanedName) == .orderedSame
                 && $0.branch.caseInsensitiveCompare(cleanedBranch) == .orderedSame
-        } ?? StoreLocation(
+        }
+        let store = existingStore ?? StoreLocation(
             name: cleanedName,
             branch: cleanedBranch,
             city: "",
@@ -297,7 +298,7 @@ struct FirstPriceView: View {
         }
 
         context.insert(product)
-        context.insert(store)
+        if existingStore == nil { context.insert(store) }
         context.insert(observation)
         try? context.save()
         onSaved(product)

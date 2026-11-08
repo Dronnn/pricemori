@@ -465,9 +465,15 @@ enum BackupService {
     @MainActor
     static func replace(with backup: BackupFile, context: ModelContext) throws -> ImportResult {
         do {
-            try context.delete(model: PriceObservation.self)
-            try context.delete(model: Product.self)
-            try context.delete(model: StoreLocation.self)
+            for observation in try context.fetch(FetchDescriptor<PriceObservation>()) {
+                context.delete(observation)
+            }
+            for product in try context.fetch(FetchDescriptor<Product>()) {
+                context.delete(product)
+            }
+            for store in try context.fetch(FetchDescriptor<StoreLocation>()) {
+                context.delete(store)
+            }
 
             let products = backup.products.map {
                 Product(

@@ -211,6 +211,79 @@ struct PricemoriTests {
         #expect(observation.price == 999)
     }
 
+    @Test func replacementRestoresBackup() throws {
+        let schema = Schema([Product.self, StoreLocation.self, PriceObservation.self])
+        let configuration = ModelConfiguration(schema: schema, isStoredInMemoryOnly: true)
+        let container = try ModelContainer(for: schema, configurations: [configuration])
+        let context = container.mainContext
+
+        let product = Product(name: "Buckwheat", brand: "Brand X")
+        let store = StoreLocation(name: "SAS", branch: "Komitas 12")
+        let observation = PriceObservation(
+            price: 320,
+            currencyCode: "AMD",
+            observedAt: date(0),
+            packageQuantity: 1,
+            packageUnit: .kilogram,
+            product: product,
+            store: store
+        )
+        context.insert(product)
+        context.insert(store)
+        context.insert(observation)
+        try context.save()
+
+        let backup = try BackupService.makeBackup(context: context)
+        SampleData.clear(context: context)
+        #expect(try context.fetchCount(FetchDescriptor<Product>()) == 0)
+
+        let result = try BackupService.replace(with: backup, context: context)
+        #expect(result.isReplacement)
+        #expect(try context.fetchCount(FetchDescriptor<Product>()) == 1)
+        #expect(try context.fetchCount(FetchDescriptor<StoreLocation>()) == 1)
+        #expect(try context.fetchCount(FetchDescriptor<PriceObservation>()) == 1)
+        let restored = try context.fetch(FetchDescriptor<PriceObservation>()).first
+        #expect(restored?.price == 320)
+        #expect(restored?.product?.name == "Buckwheat")
+    }
+
+    @Test func invalidBackupReferenceIsRejected() throws {
+        var backup = BackupFile(
+            format: BackupService.formatName,
+            version: 1,
+            exportedAt: .now,
+            settings: BackupSettings(currencyCode: "AMD", defaultSource: "shelf"),
+            products: [],
+            stores: [],
+            observations: []
+        )
+        backup.observations = [
+            BackupObservation(
+                id: UUID(),
+                productID: UUID(),
+                storeID: UUID(),
+                price: "300",
+                currencyCode: "AMD",
+                observedAt: .now,
+                createdAt: .now,
+                updatedAt: .now,
+                packageQuantity: "1",
+                packageUnit: "kilogram",
+                sizeKnown: true,
+                isLoose: false,
+                condition: "regular",
+                conditionLabel: "",
+                conditionEndDate: nil,
+                multiBuyMinimum: 1,
+                source: "shelf",
+                note: ""
+            )
+        ]
+        #expect(throws: BackupError.self) {
+            try BackupService.validate(backup)
+        }
+    }
+
     @Test func newerBackupVersionIsRejected() throws {
         let backup = BackupFile(
             format: BackupService.formatName,

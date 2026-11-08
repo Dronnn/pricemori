@@ -212,9 +212,15 @@ enum SampleData {
 
     @MainActor
     static func clear(context: ModelContext) {
-        try? context.delete(model: PriceObservation.self)
-        try? context.delete(model: Product.self)
-        try? context.delete(model: StoreLocation.self)
+        if let observations = try? context.fetch(FetchDescriptor<PriceObservation>()) {
+            for observation in observations { context.delete(observation) }
+        }
+        if let products = try? context.fetch(FetchDescriptor<Product>()) {
+            for product in products { context.delete(product) }
+        }
+        if let stores = try? context.fetch(FetchDescriptor<StoreLocation>()) {
+            for store in stores { context.delete(store) }
+        }
         try? context.save()
     }
 }

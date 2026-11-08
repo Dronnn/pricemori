@@ -106,7 +106,7 @@ The suite covers:
 - backdated entries and stale observations,
 - multi-buy pricing,
 - currency rounding,
-- backup round-trip, merge conflicts, and version validation,
+- backup round-trip, merge conflicts, replacement, and version validation,
 - CSV export,
 - first-price and repeat-entry flows, Undo, earlier observations, archiving, and store creation.
 
