@@ -6,6 +6,7 @@ struct PriceChartView: View {
     var height: CGFloat = 174
     var showsUnitLabel = false
     var basis: ChartBasis = .unit
+    var selectedDate: Binding<Date?>? = nil
 
     private var series: [PriceObservation] {
         observations
@@ -148,6 +149,7 @@ struct PriceChartView: View {
                     }
                 }
                 .frame(height: height)
+                .modifier(OptionalChartSelection(selection: selectedDate))
                 .accessibilityElement(children: .ignore)
                 .accessibilityLabel(chartAccessibilityLabel)
             }
@@ -161,5 +163,19 @@ struct PriceChartView: View {
             return "\(Format.date(observation.observedAt)): \(Format.number(displayValue, maxFraction: 2)) \(observation.currencyCode) per \(suffix)"
         }
         return "Price history. " + parts.joined(separator: ". ")
+    }
+}
+
+
+private struct OptionalChartSelection: ViewModifier {
+    let selection: Binding<Date?>?
+
+    @ViewBuilder
+    func body(content: Content) -> some View {
+        if let selection {
+            content.chartXSelection(value: selection)
+        } else {
+            content
+        }
     }
 }

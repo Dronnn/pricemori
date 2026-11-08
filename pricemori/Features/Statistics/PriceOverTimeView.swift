@@ -16,6 +16,7 @@ struct PriceOverTimeView: View {
     @State private var showFilters = false
     @State private var showCustomPeriod = false
     @State private var showRecord = false
+    @State private var selectedDate: Date?
     @State private var didResolve = false
 
     private var activeStores: [StoreLocation] {
@@ -123,9 +124,31 @@ struct PriceOverTimeView: View {
                         observations: filteredObservations,
                         height: 220,
                         showsUnitLabel: true,
-                        basis: basis
+                        basis: basis,
+                        selectedDate: $selectedDate
                     )
                     .padding(.top, 18)
+
+                    if let selectedObservation {
+                        VStack(alignment: .leading, spacing: 4) {
+                            Text("\(Format.date(selectedObservation.observedAt)) · \(Format.number(selectedObservation.unitPrice ?? selectedObservation.price, maxFraction: 2)) \(selectedObservation.currencyCode) / \(selectedObservation.baseUnitSymbol ?? "package")")
+                                .font(AppFont.inter(16, .semibold))
+                                .foregroundStyle(Theme.primaryText)
+                            Text("\(selectedObservation.packagePriceLine) · \(selectedObservation.store?.displayName ?? "")")
+                                .font(AppFont.inter(14))
+                                .foregroundStyle(Theme.secondaryText)
+                            NavigationLink {
+                                ObservationDetailView(product: product, observation: selectedObservation, onDelete: { _ in })
+                            } label: {
+                                Text("Open this observation")
+                                    .font(AppFont.inter(15, .medium))
+                                    .foregroundStyle(Theme.secondaryText)
+                                    .frame(minHeight: 44)
+                            }
+                            .buttonStyle(.plain)
+                        }
+                        .padding(.top, 10)
+                    }
                 }
 
                 VStack(alignment: .leading, spacing: 4) {
@@ -185,6 +208,13 @@ struct PriceOverTimeView: View {
         }
         .fullScreenCover(isPresented: $showRecord) {
             RecordPriceView(product: product, initialStore: selectedStore) { _ in }
+        }
+    }
+
+    private var selectedObservation: PriceObservation? {
+        guard let selectedDate else { return nil }
+        return filteredObservations.min {
+            abs($0.observedAt.timeIntervalSince(selectedDate)) < abs($1.observedAt.timeIntervalSince(selectedDate))
         }
     }
 
