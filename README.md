@@ -83,7 +83,7 @@ The journal is built for a personal library of roughly a thousand products:
 - product and store lists are lazy, so only visible rows are created;
 - each journal row resolves its latest observation once, not once per sort and once per row;
 - chart point markers and value labels are reduced when an observation series gets dense;
-- the unit test suite seeds 1,000 products with 5,000 observations and bounds journal-row and period-change computation at 2 and 3 seconds.
+- the unit test suite seeds 1,000 products with 5,000 observations; measured 0.186 s for journal-row computation and 0.159 s for period changes on the iPhone 17 simulator, with 2 s / 3 s test bounds.
 
 Backup, CSV, and restore are explicit infrequent operations; they process the journal on the main actor in this version. For very large journals, those operations are the place for a background/progress treatment in a future pass.
 
