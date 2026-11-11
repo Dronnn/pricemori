@@ -12,13 +12,21 @@ struct StoreSeries: Identifiable {
 }
 
 struct StoreHistoriesView: View {
+    @ScaledMetric(relativeTo: .body) private var chartScale: CGFloat = 1
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
     let product: Product
+    @EnvironmentObject private var router: AppRouter
 
     @State private var period: ChartPeriod = .all
     @State private var showPeriod = false
+    @State private var selectedCurrency: String?
+
+    private var reference: PriceObservation? {
+        PriceMath.crossStoreReference(for: product, currency: currency)
+    }
 
     private var currency: String {
-        product.latestRegularObservation?.currencyCode ?? "AMD"
+        selectedCurrency ?? product.regularObservations.last { $0.store?.isArchived == false }?.currencyCode ?? "AMD"
     }
 
     private var dimension: UnitDimension? {
@@ -26,6 +34,7 @@ struct StoreHistoriesView: View {
     }
 
     private var series: [StoreSeries] {
+        guard let reference else { return [] }
         var result: [StoreSeries] = []
         for store in product.sortedStores where !store.isArchived {
             let observations = period.filter(PriceMath.series(
@@ -33,7 +42,7 @@ struct StoreHistoriesView: View {
                 store: store,
                 condition: .regular,
                 currency: currency,
-                dimension: dimension
+                reference: reference
             ))
             if !observations.isEmpty {
                 result.append(StoreSeries(store: store, observations: observations, index: result.count))
@@ -53,7 +62,7 @@ struct StoreHistoriesView: View {
     }
 
     private var unitLabel: String {
-        series.first?.latest?.baseUnitSymbol ?? "kg"
+        series.first?.latest?.baseUnitSymbol ?? "unit"
     }
 
     private var allDates: [Date] {
@@ -71,6 +80,14 @@ struct StoreHistoriesView: View {
             backLabel: "Back",
             trailing: {
                 HeaderActionButton(title: "Filter") { showPeriod = true }
+            },
+            footer: {
+                VStack(spacing: 0) {
+                    if reference == nil, let record = product.latestObservation, let store = record.store {
+                        SecondaryButton(title: "View package prices") { router.push(.scopedPriceOverTime(product, store, record.id)) }
+                    }
+                    SecondaryButton(title: "All observations") { router.push(.allHistory(product)) }
+                }
             }
         ) {
             VStack(alignment: .leading, spacing: 0) {
@@ -95,7 +112,8 @@ struct StoreHistoriesView: View {
                                     if storeSeries.observations.count > 1 {
                                         LineMark(
                                             x: .value("Date", observation.observedAt),
-                                            y: .value("Unit price", value)
+                                            y: .value("Unit price", value),
+                                            series: .value("Branch", storeSeries.id.uuidString)
                                         )
                                         .interpolationMethod(.linear)
                                         .lineStyle(StrokeStyle(lineWidth: 2.2, lineCap: .round, lineJoin: .round))
@@ -135,7 +153,7 @@ struct StoreHistoriesView: View {
                             AxisGridLine(stroke: StrokeStyle(lineWidth: 0.8)).foregroundStyle(Theme.separator)
                             AxisValueLabel {
                                 if let raw = value.as(Double.self) {
-                                    Text(Format.number(Decimal(raw), maxFraction: 0))
+                                    Text(Format.number(Decimal(raw), maxFraction: ChartValues.axisFractionDigits(grid)))
                                         .font(AppFont.inter(13))
                                         .foregroundStyle(Theme.secondaryText)
                                 }
@@ -143,17 +161,17 @@ struct StoreHistoriesView: View {
                         }
                     }
                     .chartXAxis {
-                        AxisMarks(values: (primary?.observations.map(\.observedAt) ?? allDates)) { value in
+                        AxisMarks(values: .automatic(desiredCount: dynamicTypeSize.isAccessibilitySize ? 2 : 4)) { value in
                             AxisValueLabel {
                                 if let date = value.as(Date.self) {
-                                    Text(Format.shortDate(date))
+                                    Text(ChartValues.dateLabel(date, in: xDomain))
                                         .font(AppFont.inter(13))
                                         .foregroundStyle(Theme.secondaryText)
                                 }
                             }
                         }
                     }
-                    .frame(height: 230)
+                    .frame(height: 230 * max(1, chartScale))
                     .padding(.top, 28)
 
                     VStack(alignment: .leading, spacing: 6) {
@@ -182,15 +200,7 @@ struct StoreHistoriesView: View {
         }
     }
 
-    private var xDomain: ClosedRange<Date> {
-        guard let first = allDates.first, let last = allDates.last else {
-            return Date.now.addingTimeInterval(-86_400)...Date.now.addingTimeInterval(86_400)
-        }
-        if first == last {
-            return first.addingTimeInterval(-10 * 86_400)...first.addingTimeInterval(10 * 86_400)
-        }
-        return first.addingTimeInterval(-6 * 86_400)...last.addingTimeInterval(6 * 86_400)
-    }
+    private var xDomain: ClosedRange<Date> { ChartValues.dateDomain(allDates) }
 
     private func pointColor(_ series: StoreSeries, _ observation: PriceObservation) -> Color {
         if series.id == primary?.id, observation.id == series.latest?.id {
@@ -220,19 +230,7 @@ struct StoreHistoriesView: View {
 }
 
 func chartGrid(_ values: [Double]) -> [Double] {
-    guard let minimum = values.min(), let maximum = values.max() else { return [0, 1, 2] }
-    if values.count == 1 {
-        return [minimum - 20, minimum, minimum + 20]
-    }
-    if minimum >= 260, maximum <= 340 {
-        return [260, 300, 340]
-    }
-    let span = maximum - minimum
-    let step: Double = span <= 80 ? 20 : span <= 200 ? 50 : 100
-    let low = floor(minimum / step) * step
-    let high = (ceil(maximum / step) + 1) * step
-    guard high > low else { return [minimum - step, minimum, minimum + step] }
-    return [low, (low + high) / 2, high]
+    ChartValues.axisTicks(values)
 }
 
 struct PeriodChangesView: View {
@@ -330,12 +328,18 @@ struct PeriodChangesView: View {
                             }
                             GeometryReader { geometry in
                                 let half = geometry.size.width / 2
-                                let width = max(4, abs(CGFloat(NSDecimalNumber(decimal: row.change.percent / axisMaximum).doubleValue)) * half)
+                                let width = abs(CGFloat(NSDecimalNumber(decimal: row.change.percent / axisMaximum).doubleValue)) * half
                                 let x = row.change.percent >= 0 ? half : half - width
-                                RoundedRectangle(cornerRadius: 5)
-                                    .fill(Theme.chartLine)
-                                    .frame(width: width, height: 10)
-                                    .offset(x: x, y: 0)
+                                ZStack(alignment: .leading) {
+                                    Rectangle()
+                                        .fill(Theme.separator)
+                                        .frame(width: 1, height: 10)
+                                        .offset(x: half)
+                                    RoundedRectangle(cornerRadius: 5)
+                                        .fill(Theme.chartLine)
+                                        .frame(width: width, height: 10)
+                                        .offset(x: x)
+                                }
                             }
                             .frame(height: 10)
                             Text("\(Format.number(row.first.unitPrice ?? 0, maxFraction: 2)) to \(Format.number(row.last.unitPrice ?? 0, maxFraction: 2)) \(row.first.currencyCode) / \(row.first.baseUnitSymbol ?? "") · \(Format.shortDate(row.first.observedAt)) / \(Format.shortDate(row.last.observedAt))")
@@ -344,15 +348,6 @@ struct PeriodChangesView: View {
                         }
                         .padding(.vertical, 18)
                     }
-                }
-                .overlay {
-                    GeometryReader { geometry in
-                        Rectangle()
-                            .fill(Theme.separator)
-                            .frame(width: 0.8, height: geometry.size.height)
-                            .position(x: geometry.size.width / 2, y: geometry.size.height / 2)
-                    }
-                    .allowsHitTesting(false)
                 }
 
                 if rows.isEmpty {
@@ -435,52 +430,27 @@ struct PeriodChangesFilterView: View {
 
 struct PackageVsUnitView: View {
     let product: Product
+    @EnvironmentObject private var router: AppRouter
     var store: StoreLocation?
 
     @State private var period: ChartPeriod = .all
     @State private var showPeriod = false
 
     private var resolvedStore: StoreLocation? {
-        store ?? product.latestRegularObservation?.store
+        store ?? product.latestObservation?.store
     }
 
-    private var currency: String {
-        guard let resolvedStore else { return "AMD" }
-        return PriceMath.latestObservation(for: product, store: resolvedStore, condition: .regular)?.currencyCode ?? "AMD"
-    }
+    private var reference: PriceObservation? { product.sortedObservations.last { $0.store?.id == resolvedStore?.id } }
+    private var currency: String { reference?.currencyCode ?? "" }
 
     private var observations: [PriceObservation] {
-        guard let resolvedStore else { return [] }
-        return period.filter(PriceMath.series(for: product, store: resolvedStore, condition: .regular, currency: currency))
+        guard let resolvedStore, let reference else { return [] }
+        return period.filter(PriceMath.series(for: product, store: resolvedStore, condition: reference.condition, currency: currency, reference: reference, includeUnknownSize: true))
     }
 
-    private var packageChange: (PriceObservation, PriceObservation)? {
-        let sorted = observations.sortedChronologically
-        for index in 1..<max(1, sorted.count) {
-            let previous = sorted[index - 1]
-            let current = sorted[index]
-            if previous.packageQuantity != current.packageQuantity,
-               previous.packageUnit == current.packageUnit {
-                return (previous, current)
-            }
-        }
-        return nil
-    }
-
-    private var first: PriceObservation? { observations.first }
-    private var last: PriceObservation? { observations.last }
-
-    private var packageChangePercent: Decimal? {
-        guard let first, let last, first.id != last.id, first.price != 0 else { return nil }
-        return (last.effectivePackagePrice - first.effectivePackagePrice) / first.effectivePackagePrice * 100
-    }
-
-    private var unitChangePercent: Decimal? {
-        guard let first, let last, first.id != last.id,
-              let firstUnit = first.unitPrice, let lastUnit = last.unitPrice, firstUnit != 0
-        else { return nil }
-        return (lastUnit - firstUnit) / firstUnit * 100
-    }
+    private var packageChange: (PriceObservation, PriceObservation)? { ChartValues.packageSizeChange(observations) }
+    private var packageChangePercent: Decimal? { ChartValues.percentChange(observations, basis: .package) }
+    private var unitChangePercent: Decimal? { ChartValues.percentChange(observations, basis: .unit) }
 
     var body: some View {
         ScreenScaffold(
@@ -488,7 +458,8 @@ struct PackageVsUnitView: View {
             backLabel: "Back",
             trailing: {
                 HeaderActionButton(title: "Filter") { showPeriod = true }
-            }
+            },
+            footer: { SecondaryButton(title: "All observations") { router.push(.allHistory(product)) } }
         ) {
             VStack(alignment: .leading, spacing: 0) {
                 Text(resolvedStore.map { "\(product.name) · \($0.name), \($0.branch)" } ?? product.name)
@@ -496,6 +467,7 @@ struct PackageVsUnitView: View {
                     .foregroundStyle(Theme.primaryText)
                     .fixedSize(horizontal: false, vertical: true)
 
+                Text(reference?.conditionLine ?? "").font(AppFont.inter(14)).foregroundStyle(Theme.secondaryText).padding(.top, 6)
                 Text(subtitle)
                     .font(AppFont.inter(14))
                     .foregroundStyle(Theme.secondaryText)
@@ -509,9 +481,14 @@ struct PackageVsUnitView: View {
                         .padding(.top, 28)
                     PriceChartView(observations: observations, height: 150, showsUnitLabel: true, basis: .package)
 
-                    FieldLabel(text: "Normalized price · \(currency) / \(observations.last?.baseUnitSymbol ?? "kg")")
-                        .padding(.top, 28)
-                    PriceChartView(observations: observations, height: 150, showsUnitLabel: true, basis: .unit)
+                    if let known = observations.last(where: { $0.unitPrice != nil }) {
+                        FieldLabel(text: "Normalized price · \(currency) / \(known.baseUnitSymbol ?? "unit")")
+                            .padding(.top, 28)
+                        PriceChartView(observations: observations, height: 150, showsUnitLabel: true, basis: .unit)
+                    } else {
+                        InfoText(text: "Package prices include observations with unknown size. Only known compatible sizes appear in the unit-price chart.")
+                            .padding(.top, 20)
+                    }
 
                     VStack(alignment: .leading, spacing: 4) {
                         Text("Package price: \(packageChangePercent.map { Format.percent($0) } ?? "—")")
@@ -521,9 +498,7 @@ struct PackageVsUnitView: View {
                     .foregroundStyle(Theme.primaryText)
                     .padding(.top, 24)
 
-                    InfoText(text: packageChange == nil
-                        ? "The package size stayed the same. Unit prices move with the package price."
-                        : "The package got smaller. The unit price shows the increase.")
+                    InfoText(text: packageExplanation)
                         .padding(.top, 14)
                 }
             }
@@ -533,37 +508,50 @@ struct PackageVsUnitView: View {
         }
     }
 
-    private var subtitle: String {
-        if let (previous, current) = packageChange,
-           let previousQuantity = previous.packageQuantity,
-           let currentQuantity = current.packageQuantity,
-           let unit = current.packageUnit {
-            return "\(Format.quantity(previousQuantity)) \(unit.symbol) to \(Format.quantity(currentQuantity)) \(unit.symbol) · Same \(Format.money(current.price, currency: current.currencyCode)) \(current.currencyCode) pack price"
+    private var packageExplanation: String {
+        guard observations.count > 1 else { return "Record another observation to compare package and unit prices." }
+        if observations.contains(where: { $0.unitPrice == nil }) {
+            return "Package prices include observations with unknown size. Only known compatible sizes appear in the unit-price chart."
         }
-        return "Package prices and unit prices across recorded observations"
+        guard let (previous, current) = packageChange,
+              let before = previous.baseQuantity, let after = current.baseQuantity else {
+            return "The recorded package size stayed the same. Compare the two charts to see price changes."
+        }
+        return after < before
+            ? "The recorded package got smaller. Compare unit prices to see the effect on value."
+            : "The recorded package got larger. Compare unit prices to see the effect on value."
+    }
+
+    private var subtitle: String {
+        guard let (previous, current) = packageChange else {
+            return "Package prices and unit prices across recorded observations"
+        }
+        let prices = previous.effectivePackagePrice == current.effectivePackagePrice
+            ? L10n.format("Same %@ %@ pack price", Format.money(current.effectivePackagePrice, currency: currency), currency)
+            : L10n.format("%@ / package", L10n.format("%@ to %@", Format.money(previous.effectivePackagePrice, currency: currency), Format.money(current.effectivePackagePrice, currency: currency)) + " " + currency)
+        return L10n.format("%@ to %@", previous.packageSummary, current.packageSummary) + " · " + prices + " · " + Format.periodRange(from: previous.observedAt, to: current.observedAt)
     }
 }
 
 struct MoreComparisonsView: View {
     let product: Product
+    var store: StoreLocation?
     @EnvironmentObject private var router: AppRouter
 
-    private var store: StoreLocation? {
-        product.latestRegularObservation?.store
+    private var resolvedStore: StoreLocation? { store ?? product.latestObservation?.store }
+    private var reference: PriceObservation? {
+        product.sortedObservations.last { $0.store?.id == resolvedStore?.id }
     }
-
-    private var currency: String {
-        product.latestRegularObservation?.currencyCode ?? "AMD"
-    }
-
+    private var basis: ChartBasis { .preferred(for: reference) }
+    private var currency: String { reference?.currencyCode ?? "" }
+    private var unitLabel: String { basis == .package ? "package" : reference?.baseUnitSymbol ?? "unit" }
     private var observations: [PriceObservation] {
-        guard let store else { return [] }
-        return PriceMath.series(for: product, store: store, condition: .regular, currency: currency)
+        guard let store = resolvedStore, let reference else { return [] }
+        return PriceMath.series(for: product, store: store, condition: reference.condition, currency: currency,
+                                reference: reference, includeUnknownSize: basis == .package)
     }
-
-    private var range: RecordedRange? {
-        PriceMath.allTimeRange(for: observations)
-    }
+    private var range: RecordedRange? { ChartValues.recordedRange(observations, basis: basis) }
+    private func amount(_ observation: PriceObservation) -> Decimal { ChartValues.amount(observation, basis: basis) ?? 0 }
 
     var body: some View {
         ScreenScaffold(
@@ -586,45 +574,46 @@ struct MoreComparisonsView: View {
                     router.push(.storeHistories(product))
                 }
                 SeparatorLine()
-                OpenRow(title: "Did the package get smaller?", subtitle: "Compare package price and price per kg") {
-                    router.push(.packageVsUnit(product, store))
+                OpenRow(title: "Did the package get smaller?", subtitle: "Package vs unit") {
+                    router.push(.packageVsUnit(product, resolvedStore))
                 }
                 SeparatorLine()
 
-                FieldLabel(text: "Your recorded range\(store.map { " · \($0.name)" } ?? "")")
+                FieldLabel(text: "Your recorded range\(resolvedStore.map { " · \($0.name)" } ?? "")")
                     .padding(.top, 24)
 
                 Text(product.displayName)
                     .font(AppFont.inter(16, .medium))
                     .foregroundStyle(Theme.primaryText)
                     .padding(.top, 10)
-                Text("Regular · All time · \(currency) / \(observations.last?.baseUnitSymbol ?? "kg")")
+                Text("\(reference?.conditionLine ?? "") · All time · \(currency) / \(unitLabel)")
                     .font(AppFont.inter(16))
                     .foregroundStyle(Theme.primaryText)
                     .padding(.top, 2)
 
                 if let range {
                     RangeBar(
-                        minimum: range.minimum.unitPrice ?? 0,
-                        maximum: range.maximum.unitPrice ?? 0,
-                        latest: range.latest.unitPrice ?? 0
+                        minimum: amount(range.minimum),
+                        maximum: amount(range.maximum),
+                        latest: amount(range.latest)
                     )
                     .padding(.top, 30)
 
                     HStack {
-                        Text(Format.number(range.minimum.unitPrice ?? 0, maxFraction: 2))
+                        Text(Format.number(amount(range.minimum), maxFraction: 2))
                             .font(AppFont.inter(16, .medium))
                             .foregroundStyle(Theme.primaryText)
                         Spacer()
-                        Text("\(Format.number(range.latest.unitPrice ?? 0, maxFraction: 2)) latest")
+                        Text(Format.number(amount(range.maximum), maxFraction: 2))
                             .font(AppFont.inter(16, .medium))
                             .foregroundStyle(Theme.primaryText)
                     }
                     .padding(.top, 18)
 
                     VStack(alignment: .leading, spacing: 4) {
-                        Text("Minimum \(Format.number(range.minimum.unitPrice ?? 0, maxFraction: 2)) · \(Format.shortDate(range.minimum.observedAt))")
-                        Text("Maximum \(range.maximum.unitPrice == range.latest.unitPrice ? "and latest " : "")\(Format.number(range.maximum.unitPrice ?? 0, maxFraction: 2)) · \(Format.shortDate(range.maximum.observedAt))")
+                        Text("Latest \(Format.number(amount(range.latest), maxFraction: 2)) · \(Format.shortDate(range.latest.observedAt))")
+                        Text("Minimum \(Format.number(amount(range.minimum), maxFraction: 2)) · \(Format.shortDate(range.minimum.observedAt))")
+                        Text(L10n.format("Maximum %@%@ · %@", "", Format.number(amount(range.maximum), maxFraction: 2), Format.shortDate(range.maximum.observedAt)))
                     }
                     .font(AppFont.inter(14))
                     .foregroundStyle(Theme.secondaryText)
@@ -634,6 +623,7 @@ struct MoreComparisonsView: View {
                         .padding(.top, 20)
                 }
 
+                SecondaryButton(title: "All observations") { router.push(.allHistory(product)) }
                 InfoText(text: "Your lowest recorded price is different from another store’s last known price.")
                     .padding(.top, 26)
             }
@@ -648,22 +638,21 @@ struct RangeBar: View {
 
     var body: some View {
         GeometryReader { geometry in
+            let markerX = ChartValues.rangePosition(minimum: minimum, maximum: maximum, value: latest) * max(0, geometry.size.width - 8)
             ZStack(alignment: .leading) {
-                Rectangle()
-                    .fill(Theme.separator)
-                    .frame(height: 1)
-                    .offset(y: -0.5)
-                Rectangle()
-                    .fill(Theme.accent)
-                    .frame(width: 4, height: 20)
-                    .offset(x: 0, y: -10)
-                Rectangle()
-                    .fill(Theme.accent)
-                    .frame(width: 4, height: 20)
-                    .offset(x: geometry.size.width - 4, y: -10)
+                Rectangle().fill(Theme.separator).frame(height: 1)
+                HStack {
+                    Rectangle().fill(Theme.secondaryText).frame(width: 1, height: 12)
+                    Spacer()
+                    Rectangle().fill(Theme.secondaryText).frame(width: 1, height: 12)
+                }
+                Capsule().fill(Theme.accent).frame(width: 8, height: 20).offset(x: markerX)
             }
+            .frame(height: 20)
         }
         .frame(height: 20)
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel("Minimum \(Format.number(minimum)), maximum \(Format.number(maximum)), latest \(Format.number(latest))")
     }
 }
 
@@ -698,7 +687,7 @@ struct ChartPeriodView: View {
             }
         ) {
             VStack(alignment: .leading, spacing: 22) {
-                HStack(spacing: 8) {
+                WrappingHStack {
                     FilterChip(title: "1 month", isSelected: selected == .month) { selected = .month }
                     FilterChip(title: "3 months", isSelected: selected == .threeMonths) { selected = .threeMonths }
                     FilterChip(title: "All time", isSelected: selected == .all) { selected = .all }
@@ -732,6 +721,8 @@ struct ChartPeriodView: View {
 
                 InfoText(text: "Only recorded observations inside the range are plotted. No daily values are generated.")
             }
+            .onChange(of: from) { selected = .custom(from: from, to: to) }
+            .onChange(of: to) { selected = .custom(from: from, to: to) }
             .onAppear {
                 selected = period
                 if case .custom(let customFrom, let customTo) = period {
@@ -750,12 +741,16 @@ struct ChartFiltersView: View {
     @Binding var period: ChartPeriod
     @Binding var basis: ChartBasis
     @Binding var condition: ObservationCondition
+    @Binding var currency: String?
+    @Binding var offerID: UUID?
 
     @Environment(\.dismiss) private var dismiss
     @State private var localStore: StoreLocation
     @State private var localPeriod: ChartPeriod
     @State private var localBasis: ChartBasis
     @State private var localCondition: ObservationCondition
+    @State private var localCurrency: String?
+    @State private var localOfferID: UUID?
     @State private var showPeriod = false
 
     init(
@@ -764,7 +759,9 @@ struct ChartFiltersView: View {
         store: Binding<StoreLocation>,
         period: Binding<ChartPeriod>,
         basis: Binding<ChartBasis>,
-        condition: Binding<ObservationCondition>
+        condition: Binding<ObservationCondition>,
+        currency: Binding<String?>,
+        offerID: Binding<UUID?>
     ) {
         self.product = product
         self.stores = stores
@@ -772,10 +769,39 @@ struct ChartFiltersView: View {
         _period = period
         _basis = basis
         _condition = condition
+        _currency = currency
+        _offerID = offerID
         _localStore = State(initialValue: store.wrappedValue)
         _localPeriod = State(initialValue: period.wrappedValue)
         _localBasis = State(initialValue: basis.wrappedValue)
         _localCondition = State(initialValue: condition.wrappedValue)
+        _localCurrency = State(initialValue: currency.wrappedValue)
+        _localOfferID = State(initialValue: offerID.wrappedValue)
+    }
+
+    private var candidates: [PriceObservation] {
+        product.sortedObservations.filter { $0.store?.id == localStore.id && $0.condition == localCondition }
+    }
+
+    private var currencies: [String] { Array(Set(candidates.map(\.currencyCode))).sorted() }
+    private var effectiveCurrency: String? {
+        if let localCurrency, currencies.contains(localCurrency) { return localCurrency }
+        return candidates.last?.currencyCode
+    }
+
+    private var offers: [PriceObservation] {
+        var result: [PriceObservation] = []
+        for observation in candidates.reversed() where observation.currencyCode == effectiveCurrency {
+            if !result.contains(where: { PriceMath.sameConditions($0, observation) }) { result.append(observation) }
+        }
+        return result
+    }
+
+    private var effectiveOffer: PriceObservation? {
+        if let localOfferID,
+           let selected = candidates.first(where: { $0.id == localOfferID }),
+           let matching = offers.first(where: { PriceMath.sameConditions($0, selected) }) { return matching }
+        return offers.first
     }
 
     var body: some View {
@@ -791,12 +817,16 @@ struct ChartFiltersView: View {
                         period = localPeriod
                         basis = localBasis
                         condition = localCondition
+                        currency = effectiveCurrency
+                        offerID = effectiveOffer?.id
                         dismiss()
                     }
                     SecondaryButton(title: "Reset choices") {
                         localPeriod = .month
                         localBasis = .unit
                         localCondition = .regular
+                        localCurrency = nil
+                        localOfferID = nil
                     }
                 }
             }
@@ -811,8 +841,10 @@ struct ChartFiltersView: View {
                         .foregroundStyle(Theme.primaryText)
                         .padding(.horizontal, 14)
                         .frame(maxWidth: .infinity, alignment: .leading)
-                        .frame(height: 48)
+                        .padding(.vertical, 12)
+                        .frame(minHeight: 48)
                         .overlay { RoundedRectangle(cornerRadius: 10).stroke(Theme.separator) }
+                        .contentShape(Rectangle())
                 }
 
                 VStack(alignment: .leading, spacing: 8) {
@@ -834,8 +866,10 @@ struct ChartFiltersView: View {
                                 .foregroundStyle(Theme.secondaryText)
                         }
                         .padding(.horizontal, 14)
-                        .frame(height: 48)
+                        .padding(.vertical, 12)
+                        .frame(minHeight: 48)
                         .overlay { RoundedRectangle(cornerRadius: 10).stroke(Theme.separator) }
+                        .contentShape(Rectangle())
                     }
                 }
 
@@ -856,15 +890,17 @@ struct ChartFiltersView: View {
                                 .foregroundStyle(Theme.secondaryText)
                         }
                         .padding(.horizontal, 14)
-                        .frame(height: 48)
+                        .padding(.vertical, 12)
+                        .frame(minHeight: 48)
                         .overlay { RoundedRectangle(cornerRadius: 10).stroke(Theme.separator) }
+                        .contentShape(Rectangle())
                     }
                     .buttonStyle(.plain)
                 }
 
                 VStack(alignment: .leading, spacing: 8) {
                     FieldLabel(text: "Price basis")
-                    HStack(spacing: 8) {
+                    WrappingHStack {
                         ForEach(ChartBasis.allCases) { option in
                             FilterChip(title: option.title, isSelected: localBasis == option) {
                                 localBasis = option
@@ -875,14 +911,35 @@ struct ChartFiltersView: View {
 
                 VStack(alignment: .leading, spacing: 8) {
                     FieldLabel(text: "Offers")
-                    HStack(spacing: 8) {
+                    WrappingHStack {
                         FilterChip(title: "Regular", isSelected: localCondition == .regular) { localCondition = .regular }
                         FilterChip(title: "Card", isSelected: localCondition == .card) { localCondition = .card }
                         FilterChip(title: "Multi-buy", isSelected: localCondition == .multiBuy) { localCondition = .multiBuy }
                     }
                 }
 
-                InfoText(text: "Currency: \(product.latestRegularObservation?.currencyCode ?? "AMD") · Include archived: Off\nDifferent currencies are kept separate.")
+                if !currencies.isEmpty {
+                    VStack(alignment: .leading, spacing: 8) {
+                        FieldLabel(text: "Currency")
+                        ForEach(currencies, id: \.self) { code in
+                            SelectionRow(title: code, isSelected: effectiveCurrency == code) {
+                                localCurrency = code
+                                localOfferID = nil
+                            }
+                        }
+                    }
+                }
+                if localCondition != .regular, !offers.isEmpty {
+                    VStack(alignment: .leading, spacing: 8) {
+                        FieldLabel(text: "Offer conditions")
+                        ForEach(offers) { offer in
+                            SelectionRow(title: offer.conditionLine, isSelected: effectiveOffer?.id == offer.id) {
+                                localOfferID = offer.id
+                            }
+                        }
+                    }
+                }
+                InfoText(text: "Different currencies and offer conditions are kept separate. Archived branches are hidden.")
             }
             .fullScreenCover(isPresented: $showPeriod) {
                 ChartPeriodView(period: $localPeriod)

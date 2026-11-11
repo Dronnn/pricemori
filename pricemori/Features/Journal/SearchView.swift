@@ -25,8 +25,10 @@ struct SearchView: View {
                     .font(AppFont.inter(16))
                     .foregroundStyle(Theme.primaryText)
                     .padding(.horizontal, 14)
-                    .frame(height: 48)
+                    .padding(.vertical, 12)
+                    .frame(minHeight: 48)
                     .overlay { RoundedRectangle(cornerRadius: 10).stroke(Theme.separator) }
+                    .contentShape(Rectangle())
                     .autocorrectionDisabled()
                     .focused($focused)
 
@@ -81,7 +83,7 @@ struct SearchView: View {
         .fullScreenCover(isPresented: $showAdd, onDismiss: {
             if let pendingProduct {
                 self.pendingProduct = nil
-                router.push(.productFromSearch(pendingProduct))
+                router.push(pendingProduct.observations.isEmpty ? .productFromSearch(pendingProduct) : .productFirstSave(pendingProduct))
             }
         }) {
             AddProductFlow(mode: .full, initialName: query.trimmingCharacters(in: .whitespacesAndNewlines)) { product in
@@ -103,6 +105,7 @@ struct SearchView: View {
 struct FavoritesView: View {
     @EnvironmentObject private var router: AppRouter
     @Environment(\.modelContext) private var context
+    @State private var saveError = false
     @Environment(\.dismiss) private var dismiss
     @Query(sort: \Product.createdAt) private var products: [Product]
 
@@ -115,7 +118,7 @@ struct FavoritesView: View {
     }
 
     var body: some View {
-        ScreenScaffold(title: "Favorites", backLabel: "Journal") {
+        ScreenScaffold(saveError: $saveError, title: "Favorites", backLabel: "Journal") {
             VStack(alignment: .leading, spacing: 16) {
                 Button {
                     dismiss()
@@ -145,7 +148,7 @@ struct FavoritesView: View {
                         if let first = activeProducts.first {
                             SecondaryButton(title: "Add \(first.displayName) to favorites") {
                                 first.isFavorite = true
-                                try? context.save()
+                                guard context.saveReportingError(&saveError) else { return }
                             }
                         }
                     }
@@ -161,7 +164,7 @@ struct FavoritesView: View {
                                         Text("★")
                                             .font(AppFont.inter(16))
                                             .foregroundStyle(Theme.accent)
-                                        JournalProductRow(product: product, observation: product.latestRegularObservation)
+                                        JournalProductRow(product: product, observation: product.latestObservation)
                                     }
                                     .contentShape(Rectangle())
                                 }
@@ -169,7 +172,7 @@ struct FavoritesView: View {
 
                                 Button {
                                     product.isFavorite = false
-                                    try? context.save()
+                                    guard context.saveReportingError(&saveError) else { return }
                                 } label: {
                                     Image(systemName: "star.slash")
                                         .font(.system(size: 17))

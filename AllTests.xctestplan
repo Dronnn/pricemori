@@ -1,0 +1,39 @@
+{
+  "configurations": [
+    {
+      "id": "5AF8ECBF-9BDD-4237-8E69-A9E61D77652A",
+      "name": "Default",
+      "options": {}
+    }
+  ],
+  "defaultOptions": {
+    "storeKitConfigurationFilePath": {
+      "containerPath": "container:pricemori.xcodeproj",
+      "relativePath": "Configuration/Pricemori.storekit"
+    },
+    "targetForVariableExpansion": {
+      "containerPath": "container:pricemori.xcodeproj",
+      "identifier": "18C5243B309F27CA00446848",
+      "name": "pricemori"
+    }
+  },
+  "testTargets": [
+    {
+      "parallelizable": false,
+      "target": {
+        "containerPath": "container:pricemori.xcodeproj",
+        "identifier": "18C5244A309F27CB00446848",
+        "name": "pricemoriTests"
+      }
+    },
+    {
+      "parallelizable": false,
+      "target": {
+        "containerPath": "container:pricemori.xcodeproj",
+        "identifier": "18C52454309F27CB00446848",
+        "name": "pricemoriUITests"
+      }
+    }
+  ],
+  "version": 1
+}

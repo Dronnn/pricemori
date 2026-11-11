@@ -1,0 +1,47 @@
+{
+  "supportUrl": {
+    "status": 200,
+    "finalUrl": "https://dronnn.github.io/pricemori/support.html",
+    "hasPricemori": true
+  },
+  "marketingUrl": {
+    "status": 200,
+    "finalUrl": "https://dronnn.github.io/pricemori/",
+    "hasPricemori": true
+  },
+  "privacyPolicyUrl": {
+    "status": 200,
+    "finalUrl": "https://dronnn.github.io/pricemori/privacy.html",
+    "hasPricemori": true
+  },
+  "free:manualPrices": {
+    "priceRecords": 1,
+    "pricePointsVerified": 1
+  },
+  "free:automaticPrices": {
+    "priceRecords": 174,
+    "pricePointsVerified": 174
+  },
+  "appAvailability": {
+    "territories": 175,
+    "available": 175
+  },
+  "AppStore/creative/header-v2.png": {
+    "id": "e7000019-73b7-8a45-8030-a7b5fec4f120",
+    "state": "PREPARE_FOR_SUBMISSION",
+    "dimensions": {
+      "width": 3840,
+      "height": 1646
+    },
+    "stateDetails": null
+  },
+  "AppStore/creative/search-results-v2.png": {
+    "id": "67400019-73b7-8a45-800a-3ae6af65b919",
+    "state": "PREPARE_FOR_SUBMISSION",
+    "dimensions": {
+      "width": 1920,
+      "height": 1280
+    },
+    "stateDetails": null
+  }
+}

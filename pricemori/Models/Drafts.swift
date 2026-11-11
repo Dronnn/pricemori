@@ -1,11 +1,11 @@
 import Foundation
 
-struct ObservationDraft {
+struct ObservationDraft: Equatable {
     var priceText: String = ""
     var currencyCode: String = "AMD"
-    var quantityText: String = "1"
+    var quantityText: String = ""
     var unit: MeasurementUnit = .kilogram
-    var sizeKnown: Bool = true
+    var sizeKnown: Bool = false
     var isLoose: Bool = false
     var condition: ObservationCondition = .regular
     var conditionLabel: String = ""
@@ -25,7 +25,8 @@ struct ObservationDraft {
     }
 
     var hasValidPrice: Bool {
-        (price ?? 0) > 0
+        guard let price, price > 0 else { return false }
+        return Format.roundedForCurrency(price, currency: currencyCode) > 0
     }
 
     var hasValidQuantity: Bool {
@@ -34,7 +35,8 @@ struct ObservationDraft {
 
     var unitPricePreview: Decimal? {
         guard hasValidPrice, hasValidQuantity, sizeKnown, let price, let quantity else { return nil }
-        let effective = condition == .multiBuy ? price / Decimal(max(1, multiBuyMinimum)) : price
+        let rounded = Format.roundedForCurrency(price, currency: currencyCode)
+        let effective = condition == .multiBuy ? rounded / Decimal(max(2, multiBuyMinimum)) : rounded
         let base = quantity * unit.baseMultiplier
         guard base > 0 else { return nil }
         return effective / base
@@ -60,10 +62,28 @@ struct ObservationDraft {
         source = observation.source
     }
 
+    /// Suggestions may fill an untouched form, but must not reinterpret entered amounts.
+    mutating func suggestTemplate(from observation: PriceObservation, ifUneditedSince baseline: ObservationDraft, at store: StoreLocation) {
+        guard self == baseline else { return }
+        applyTemplate(from: observation)
+        if observation.store?.id == store.id {
+            condition = observation.condition
+            conditionLabel = observation.conditionLabel
+            conditionEndDate = observation.isExpired ? nil : observation.conditionEndDate
+            multiBuyMinimum = observation.multiBuyMinimum
+        } else {
+            condition = .regular
+            conditionLabel = ""
+            conditionEndDate = nil
+            multiBuyMinimum = 1
+        }
+    }
+
     func makeObservation(product: Product, store: StoreLocation) -> PriceObservation? {
         guard hasValidPrice, let price else { return nil }
         guard hasValidQuantity else { return nil }
         let rounded = Format.roundedForCurrency(price, currency: currencyCode)
+        guard rounded > 0 else { return nil }
         let quantity = sizeKnown ? self.quantity : nil
         return PriceObservation(
             price: rounded,
@@ -82,6 +102,28 @@ struct ObservationDraft {
             product: product,
             store: store
         )
+    }
+
+    @discardableResult
+    func applyCorrection(to observation: PriceObservation, product: Product? = nil, store: StoreLocation? = nil) -> Bool {
+        guard hasValidPrice, hasValidQuantity, let price else { return false }
+        if let product { observation.product = product }
+        if let store { observation.store = store }
+        observation.price = Format.roundedForCurrency(price, currency: currencyCode)
+        observation.currencyCode = currencyCode
+        observation.observedAt = observedAt
+        observation.packageQuantity = sizeKnown ? quantity : nil
+        observation.packageUnit = sizeKnown ? unit : nil
+        observation.sizeKnown = sizeKnown
+        observation.isLoose = isLoose
+        observation.condition = condition
+        observation.conditionLabel = condition == .card ? conditionLabel : ""
+        observation.conditionEndDate = condition == .card ? conditionEndDate : nil
+        observation.multiBuyMinimum = condition == .multiBuy ? max(2, multiBuyMinimum) : 1
+        observation.source = source
+        observation.note = note
+        observation.updatedAt = .now
+        return true
     }
 }
 

@@ -67,6 +67,10 @@ final class Product {
             }
     }
 
+    var latestObservation: PriceObservation? {
+        observations.max { PriceMath.isEarlier($0, than: $1) }
+    }
+
     var storeCount: Int {
         Set(observations.compactMap { $0.store?.id }).count
     }

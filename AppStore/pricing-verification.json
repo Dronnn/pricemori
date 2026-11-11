@@ -1,0 +1,73 @@
+{
+  "donations": {
+    "com.mrmaier.pricemori.tip.extraordinary": {
+      "usaBase": "99.99",
+      "manualPriceCount": 44,
+      "automaticPriceCount": 131,
+      "unavailableOverrideTerritories": [
+        "BGD",
+        "ETH"
+      ],
+      "availableTerritories": 175,
+      "matchesProjectPolicy": true
+    },
+    "com.mrmaier.pricemori.tip.generous": {
+      "usaBase": "19.99",
+      "manualPriceCount": 44,
+      "automaticPriceCount": 131,
+      "unavailableOverrideTerritories": [
+        "BGD",
+        "ETH"
+      ],
+      "availableTerritories": 175,
+      "matchesProjectPolicy": true
+    },
+    "com.mrmaier.pricemori.tip.large": {
+      "usaBase": "7.99",
+      "manualPriceCount": 44,
+      "automaticPriceCount": 131,
+      "unavailableOverrideTerritories": [
+        "BGD",
+        "ETH"
+      ],
+      "availableTerritories": 175,
+      "matchesProjectPolicy": true
+    },
+    "com.mrmaier.pricemori.tip.medium": {
+      "usaBase": "4.99",
+      "manualPriceCount": 44,
+      "automaticPriceCount": 131,
+      "unavailableOverrideTerritories": [
+        "BGD",
+        "ETH"
+      ],
+      "availableTerritories": 175,
+      "matchesProjectPolicy": true
+    },
+    "com.mrmaier.pricemori.tip.patron": {
+      "usaBase": "49.99",
+      "manualPriceCount": 44,
+      "automaticPriceCount": 131,
+      "unavailableOverrideTerritories": [
+        "BGD",
+        "ETH"
+      ],
+      "availableTerritories": 175,
+      "matchesProjectPolicy": true
+    },
+    "com.mrmaier.pricemori.tip.small": {
+      "usaBase": "2.99",
+      "manualPriceCount": 44,
+      "automaticPriceCount": 131,
+      "unavailableOverrideTerritories": [
+        "BGD",
+        "ETH"
+      ],
+      "availableTerritories": 175,
+      "matchesProjectPolicy": true
+    }
+  },
+  "appPrice": "free",
+  "appTerritories": 175,
+  "pricingChanged": false
+}

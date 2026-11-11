@@ -45,9 +45,9 @@ struct RestoreBackupSheet: View {
             defaultFilename: ExportNaming.safetyBackup()
         ) { result in
             switch result {
-            case .success:
+            case .success(let url):
                 if case .replace(let plan) = stage {
-                    let name = ExportNaming.safetyBackup()
+                    let name = url.lastPathComponent
                     UserDefaults.standard.set(Date.now.timeIntervalSince1970, forKey: "lastBackupExport")
                     stage = .confirm(plan, name)
                 }
@@ -56,7 +56,7 @@ struct RestoreBackupSheet: View {
             }
         }
         .alert("Export failed", isPresented: $exportFailed) {
-            Button("Try export again") { showSafetyExporter = true }
+            Button("Try export again") { exportSafetyBackup() }
             Button("Cancel", role: .cancel) {}
         } message: {
             Text("There may not be enough free space, or the chosen destination is unavailable. Your journal is safe on this device. Replacement stays blocked.")
@@ -218,7 +218,7 @@ struct RestoreBackupSheet: View {
                     Text("\(Format.timestamp(conflict.observedAt)) · \(conflict.current.packageQuantity ?? "") \(conflict.current.packageUnit ?? "")")
                         .font(AppFont.inter(13))
                         .foregroundStyle(Theme.secondaryText)
-                    HStack(spacing: 8) {
+                    WrappingHStack {
                         FilterChip(title: "Keep current", isSelected: (choices[conflict.id] ?? .current) == .current) {
                             choices[conflict.id] = .current
                         }
@@ -226,9 +226,16 @@ struct RestoreBackupSheet: View {
                             choices[conflict.id] = .backup
                         }
                     }
-                    Text("Current: \(conflict.current.price) \(conflict.current.currencyCode) · Backup: \(conflict.backup.price) \(conflict.backup.currencyCode)")
+                    ForEach(conflictDifferences(conflict, plan: plan), id: \.label) { difference in
+                        VStack(alignment: .leading, spacing: 4) {
+                            Text(LocalizedStringKey(difference.label))
+                                .font(AppFont.inter(14, .medium))
+                            Text("Current: \(difference.current)")
+                            Text("Backup: \(difference.backup)")
+                        }
                         .font(AppFont.inter(14))
                         .foregroundStyle(Theme.secondaryText)
+                    }
                 }
                 .padding(.vertical, 10)
                 SeparatorLine()
@@ -236,6 +243,50 @@ struct RestoreBackupSheet: View {
 
             InfoText(text: "Both choices are reviewed before anything is imported.")
         }
+    }
+
+    private struct ConflictDifference {
+        let label: String
+        let current: String
+        let backup: String
+    }
+
+    private func conflictDifferences(_ conflict: ImportConflict, plan: MergePlan) -> [ConflictDifference] {
+        let current = conflict.current
+        let backup = conflict.backup
+        let dateFormatter = ISO8601DateFormatter()
+        func date(_ value: Date?) -> String {
+            value.map { dateFormatter.string(from: $0) } ?? "—"
+        }
+        var differences: [ConflictDifference] = []
+        func add(_ label: String, _ current: String, _ backup: String) {
+            guard current != backup else { return }
+            differences.append(ConflictDifference(label: label, current: current.isEmpty ? "—" : current, backup: backup.isEmpty ? "—" : backup))
+        }
+        if current.productID != backup.productID {
+            let product = plan.backup.products.first { $0.id == backup.productID }
+            differences.append(ConflictDifference(label: "Different saved product", current: conflict.productName, backup: [product?.name, product?.brand, product?.variety].compactMap { $0 }.filter { !$0.isEmpty }.joined(separator: " · ")))
+        }
+        if current.storeID != backup.storeID {
+            let store = plan.backup.stores.first { $0.id == backup.storeID }
+            differences.append(ConflictDifference(label: "Different saved branch", current: conflict.storeName, backup: "\(store?.name ?? "") · \(store?.branch ?? "")"))
+        }
+        add("Price", current.price, backup.price)
+        add("Currency", current.currencyCode, backup.currencyCode)
+        add("Observed at", date(current.observedAt), date(backup.observedAt))
+        add("Created at", date(current.createdAt), date(backup.createdAt))
+        add("Updated at", date(current.updatedAt), date(backup.updatedAt))
+        add("Package amount", current.packageQuantity ?? "", backup.packageQuantity ?? "")
+        add("Package unit", current.packageUnit ?? "", backup.packageUnit ?? "")
+        add("Package size known", L10n.string(current.sizeKnown ? "Yes" : "No"), L10n.string(backup.sizeKnown ? "Yes" : "No"))
+        add("Loose goods", L10n.string(current.isLoose ? "Yes" : "No"), L10n.string(backup.isLoose ? "Yes" : "No"))
+        add("Condition", ObservationCondition(rawValue: current.condition)?.title ?? current.condition, ObservationCondition(rawValue: backup.condition)?.title ?? backup.condition)
+        add("Condition details", current.conditionLabel, backup.conditionLabel)
+        add("Offer ends", date(current.conditionEndDate), date(backup.conditionEndDate))
+        add("Minimum packages", String(current.multiBuyMinimum), String(backup.multiBuyMinimum))
+        add("Source", ObservationSource(rawValue: current.source)?.title ?? current.source, ObservationSource(rawValue: backup.source)?.title ?? backup.source)
+        add("Note", current.note, backup.note)
+        return differences
     }
 
     private func readyContent(_ plan: MergePlan) -> some View {
@@ -262,6 +313,7 @@ struct RestoreBackupSheet: View {
             .padding(.top, 10)
 
             InfoText(text: "Existing data is kept. Original dates, units, branches and offer conditions are preserved.")
+            InfoText(text: "Merge keeps existing product details, branch names and app preferences. Imported observations use those existing labels. Use replacement to restore all details and preferences from the backup.")
             SecondaryButton(title: "Review conflict choices") { stage = .conflicts(plan) }
         }
     }
@@ -358,7 +410,7 @@ struct RestoreBackupSheet: View {
             Text("This backup is incomplete")
                 .font(AppFont.serif(32))
                 .foregroundStyle(Theme.primaryText)
-            Text(message)
+            Text(L10n.string(message))
                 .font(AppFont.inter(16))
                 .foregroundStyle(Theme.primaryText)
             InfoText(text: "The file cannot be safely restored. No changes were made to your journal.")

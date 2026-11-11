@@ -13,23 +13,31 @@ struct AddProductFlow: View {
 
     @Environment(\.dismiss) private var dismiss
     @Environment(\.modelContext) private var context
+    @State private var saveError = false
     @State private var draft = ProductDraft()
+    @State private var initialized = false
     @State private var showPrice = false
+    @State private var priceDraft = ObservationDraft()
+    @State private var storeName = ""
+    @State private var branch = ""
+    @State private var showDiscard = false
 
     var body: some View {
         NavigationStack {
             AddProductView(
                 draft: $draft,
                 mode: mode,
-                onCancel: { dismiss() },
+                onCancel: {
+                    if draft.isValid || !priceDraft.priceText.isEmpty { showDiscard = true } else { dismiss() }
+                },
                 onContinue: {
-                    if mode == .onboarding { draft.parseCombinedName() }
                     showPrice = true
                 },
                 onSaveWithoutPrice: {
+                    guard draft.isValid else { return }
                     let product = draft.makeProduct()
                     context.insert(product)
-                    try? context.save()
+                    guard context.saveReportingError(&saveError) else { return }
                     onComplete(product)
                     dismiss()
                 }
@@ -37,6 +45,9 @@ struct AddProductFlow: View {
             .navigationDestination(isPresented: $showPrice) {
                 FirstPriceView(
                     productDraft: draft,
+                    draft: $priceDraft,
+                    storeName: $storeName,
+                    branch: $branch,
                     onBack: { showPrice = false },
                     onSaved: { product in
                         onComplete(product)
@@ -45,8 +56,21 @@ struct AddProductFlow: View {
                 )
             }
         }
+        .alert("Could not save changes", isPresented: $saveError) {
+            Button("OK", role: .cancel) {}
+        } message: {
+            Text("Your changes were not saved. Please try again.")
+        }
+        .confirmationDialog("Discard changes?", isPresented: $showDiscard, titleVisibility: .visible) {
+            Button("Discard draft", role: .destructive) { dismiss() }
+            Button("Keep editing", role: .cancel) {}
+        }
         .onAppear {
+            guard !initialized else { return }
+            initialized = true
             if draft.name.isEmpty { draft.name = initialName }
+            priceDraft.currencyCode = UserDefaults.standard.string(forKey: "currencyCode") ?? "AMD"
+            priceDraft.source = ObservationSource(rawValue: UserDefaults.standard.string(forKey: "defaultSource") ?? "") ?? .shelf
         }
     }
 }
@@ -77,7 +101,9 @@ struct AddProductView: View {
                         if nameIsValid { onContinue() } else { showValidation = true }
                     }
                     if mode == .full {
-                        SecondaryButton(title: "Save product without a price", action: onSaveWithoutPrice)
+                        SecondaryButton(title: "Save product without a price") {
+                            if nameIsValid { onSaveWithoutPrice() } else { showValidation = true }
+                        }
                     }
                 }
             }
@@ -122,10 +148,10 @@ struct AddProductView: View {
                 if mode == .onboarding {
                     InfoText(text: "Include the brand or variety if it matters. You can change the name later.")
                     InfoText(text: "Start with one product. Its package size and store are recorded with the price.")
-                        .padding(.top, 42)
+                        .padding(.top, 6)
                 } else {
                     InfoText(text: "Your saved stores will be available at the next step. Package size is recorded with the price.")
-                        .padding(.top, 32)
+                        .padding(.top, 6)
                 }
             }
         }
@@ -134,15 +160,16 @@ struct AddProductView: View {
 
 struct FirstPriceView: View {
     let productDraft: ProductDraft
+    @Binding var draft: ObservationDraft
+    @Binding var storeName: String
+    @Binding var branch: String
     let onBack: () -> Void
     let onSaved: (Product) -> Void
 
     @Environment(\.modelContext) private var context
+    @State private var saveError = false
     @Query private var stores: [StoreLocation]
 
-    @State private var draft = ObservationDraft()
-    @State private var storeName = ""
-    @State private var branch = ""
     @State private var showBasis = false
     @State private var showConditions = false
     @State private var showDateSource = false
@@ -170,11 +197,11 @@ struct FirstPriceView: View {
     }
 
     var body: some View {
-        ScreenScaffold(
+        ScreenScaffold(saveError: $saveError,
             title: "First price",
             backLabel: "Product",
             backAction: onBack,
-            topPadding: 8,
+            topPadding: 16,
             footer: {
                 PrimaryButton(title: "Save first price") { save() }
             }
@@ -189,22 +216,39 @@ struct FirstPriceView: View {
                     Text(priceLabel)
                         .font(AppFont.inter(13))
                         .foregroundStyle(Theme.secondaryText)
-                    HStack(spacing: 10) {
+                    AdaptiveControlRow {
                         OutlinedField(placeholder: "320", text: $draft.priceText, keyboard: .decimalPad)
                         Button {
                             showCurrency = true
                         } label: {
                             HStack {
                                 Text(draft.currencyCode)
+                                    .fixedSize(horizontal: true, vertical: true)
                                     .font(AppFont.inter(16))
                                     .foregroundStyle(Theme.primaryText)
                                 Spacer()
                             }
                             .padding(.horizontal, 14)
-                            .frame(width: 100, height: 48)
+                            .frame(minWidth: 100, minHeight: 48)
                             .overlay { RoundedRectangle(cornerRadius: 10).stroke(Theme.separator) }
+                            .contentShape(Rectangle())
                         }
                         .buttonStyle(.plain)
+                    }
+                }
+
+                if stores.contains(where: { !$0.isArchived }) {
+                    Menu {
+                        ForEach(stores.filter { !$0.isArchived }) { store in
+                            Button(store.displayName) {
+                                storeName = store.name
+                                branch = store.branch
+                            }
+                        }
+                    } label: {
+                        Label("Choose a saved store", systemImage: "building.2")
+                            .font(AppFont.inter(16, .medium))
+                            .frame(minHeight: 44)
                     }
                 }
 
@@ -245,12 +289,6 @@ struct FirstPriceView: View {
                         .foregroundStyle(Theme.error)
                 }
 
-            }
-            .onAppear {
-                if draft.priceText.isEmpty {
-                    draft.currencyCode = UserDefaults.standard.string(forKey: "currencyCode") ?? "AMD"
-                    draft.source = ObservationSource(rawValue: UserDefaults.standard.string(forKey: "defaultSource") ?? "") ?? .shelf
-                }
             }
             .fullScreenCover(isPresented: $showBasis) { PriceBasisView(draft: $draft) }
             .fullScreenCover(isPresented: $showConditions) { ConditionsView(draft: $draft) }
@@ -301,7 +339,7 @@ struct FirstPriceView: View {
         context.insert(product)
         if existingStore == nil { context.insert(store) }
         context.insert(observation)
-        try? context.save()
+        guard context.saveReportingError(&saveError) else { return }
         onSaved(product)
     }
 }
@@ -317,6 +355,8 @@ struct StoreFormView: View {
     var onArchive: ((StoreLocation) -> Void)? = nil
 
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.modelContext) private var context
+    @State private var saveError = false
     @Query private var stores: [StoreLocation]
 
     @State private var name = ""
@@ -338,7 +378,7 @@ struct StoreFormView: View {
     }
 
     var body: some View {
-        ScreenScaffold(
+        ScreenScaffold(saveError: $saveError,
             title: title,
             backLabel: "Cancel",
             showsBackChevron: false,
@@ -393,6 +433,9 @@ struct StoreFormView: View {
                     .alert("Archive this location?", isPresented: $showArchiveAlert) {
                         Button("Cancel", role: .cancel) {}
                         Button("Archive", role: .destructive) {
+                            store.isArchived = true
+                            store.archivedAt = .now
+                            guard context.saveReportingError(&saveError) else { return }
                             onArchive?(store)
                         }
                     } message: {
@@ -442,6 +485,7 @@ struct StoreFormView: View {
             store.branch = cleanedBranch
             store.city = city.trimmingCharacters(in: .whitespaces)
             store.note = note.trimmingCharacters(in: .whitespaces)
+            guard context.saveReportingError(&saveError) else { return }
             onSave(store)
             return
         }
@@ -459,9 +503,11 @@ struct StoreFormView: View {
         let store = StoreLocation(
             name: cleanedName,
             branch: cleanedBranch,
-            city: "",
-            note: ""
+            city: city.trimmingCharacters(in: .whitespacesAndNewlines),
+            note: note.trimmingCharacters(in: .whitespacesAndNewlines)
         )
+        context.insert(store)
+        guard context.saveReportingError(&saveError) else { return }
         onSave(store)
     }
 }

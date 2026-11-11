@@ -4,7 +4,7 @@ final class LocalizationProbeUITests: XCTestCase {
     @MainActor
     func testGermanScreens() throws {
         let app = XCUIApplication()
-        app.launchArguments = ["-in-memory", "-seed-sample", "-appLanguage", "de"]
+        app.launchArguments = ["-in-memory", "-seed-sample", "-skip-onboarding", "-appLanguage", "de"]
         app.launch()
 
         XCTAssertTrue(app.staticTexts["Tagebuch"].waitForExistence(timeout: 5))

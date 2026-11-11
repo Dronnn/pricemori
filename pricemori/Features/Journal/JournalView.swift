@@ -33,8 +33,10 @@ struct JournalView: View {
             JournalEntry(
                 product: product,
                 observation: storeFilter.flatMap {
-                    PriceMath.latestObservation(for: product, store: $0, condition: .regular)
-                } ?? product.latestRegularObservation
+                    let branch = $0
+                    return product.observations.filter { $0.store?.id == branch.id }
+                        .max { PriceMath.isEarlier($0, than: $1) }
+                } ?? (storeFilter == nil ? product.latestObservation : nil)
             )
         }
 
@@ -60,7 +62,8 @@ struct JournalView: View {
             backLabel: "Menu",
             showsBackChevron: false,
             backAction: { showMenu = true },
-            topPadding: 8,
+            topPadding: 16,
+            scrollsContent: false,
             trailing: {
                 HStack(spacing: 2) {
                     Button {
@@ -79,76 +82,91 @@ struct JournalView: View {
                 }
             }
         ) {
-            VStack(alignment: .leading, spacing: 16) {
-                VStack(alignment: .leading, spacing: 8) {
-                    Text("Search products")
-                        .font(AppFont.inter(13))
-                        .foregroundStyle(Theme.secondaryText)
-                    SearchFieldButton(placeholder: "Search name, brand or model") {
-                        router.push(.search)
-                    }
-                }
-
-                HStack(spacing: 8) {
-                    FilterChip(title: "All", isSelected: !favoritesOnly) {
-                        favoritesOnly = false
-                    }
-                    FilterChip(title: "Favorites", isSelected: false) {
-                        router.push(.favorites)
-                    }
-                    FilterChip(title: "Filter / sort", isSelected: storeFilter != nil) {
-                        showFilters = true
-                    }
-                }
-
-                if entries.isEmpty {
-                    VStack(alignment: .leading, spacing: 8) {
-                        Text(favoritesOnly ? "No favorite products" : "No products match this filter")
-                            .font(AppFont.inter(16, .medium))
-                            .foregroundStyle(Theme.primaryText)
-                        Text(favoritesOnly
-                            ? "Mark a product as a favorite to find it quickly."
-                            : "Choose another store or show all branches.")
-                            .font(AppFont.inter(14))
-                            .foregroundStyle(Theme.secondaryText)
-                    }
-                    .padding(.vertical, 24)
-                } else {
-                    LazyVStack(spacing: 0) {
-                        ForEach(entries) { entry in
-                            NavigationLink(value: AppRoute.product(entry.product)) {
-                                JournalProductRow(
-                                    product: entry.product,
-                                    observation: entry.observation
-                                )
+            List {
+                Group {
+                    VStack(alignment: .leading, spacing: 16) {
+                        VStack(alignment: .leading, spacing: 8) {
+                            Text("Search products")
+                                .font(AppFont.inter(13))
+                                .foregroundStyle(Theme.secondaryText)
+                            SearchFieldButton(placeholder: "Search name, brand or model") {
+                                router.push(.search)
                             }
-                            .buttonStyle(.plain)
-                            if entry.id != entries.last?.id {
-                                SeparatorLine()
+                        }
+                        WrappingHStack {
+                            FilterChip(title: "All", isSelected: !favoritesOnly) {
+                                favoritesOnly = false
+                            }
+                            FilterChip(title: "Favorites", isSelected: false) {
+                                router.push(.favorites)
+                            }
+                            FilterChip(title: "Filter / sort", isSelected: storeFilter != nil) {
+                                showFilters = true
                             }
                         }
                     }
-                }
+                    .padding(.top, 16)
+                    .padding(.bottom, 24)
+                    .listRowSeparator(.hidden)
 
-                Button {
-                    router.push(.statistics(nil, nil))
-                } label: {
-                    VStack(alignment: .leading, spacing: 4) {
-                        Text("Statistics & charts")
-                            .font(AppFont.inter(17, .semibold))
-                            .foregroundStyle(Theme.primaryText)
-                        Text("Price progression · Store bars · Period changes")
-                            .font(AppFont.inter(14))
-                            .foregroundStyle(Theme.secondaryText)
+                    if entries.isEmpty {
+                        VStack(alignment: .leading, spacing: 8) {
+                            Text(L10n.string(activeProducts.isEmpty ? "No active products" : favoritesOnly ? "No favorite products" : "No products match this filter"))
+                                .font(AppFont.inter(16, .medium))
+                                .foregroundStyle(Theme.primaryText)
+                            Text(L10n.string(activeProducts.isEmpty
+                                ? (allProducts.contains(where: \.isArchived) ? "Add a product or restore one from Archived products." : "Start with one product you buy regularly.")
+                                : favoritesOnly ? "Mark a product as a favorite to find it quickly."
+                                : "Choose another store or show all branches."))
+                                .font(AppFont.inter(14))
+                                .foregroundStyle(Theme.secondaryText)
+                            if allProducts.contains(where: \.isArchived) {
+                                Button("Archived products") { router.push(.archivedProducts) }
+                                    .frame(minHeight: 44)
+                            }
+                        }
+                        .padding(.vertical, 24)
+                    } else {
+                        ForEach(entries) { entry in
+                            NavigationLink(value: storeFilter.map { AppRoute.productFromJournalBranch(entry.product, $0) } ?? .product(entry.product)) {
+                                    JournalProductRow(
+                                        product: entry.product,
+                                        observation: entry.observation
+                                    )
+                                }
+                            .buttonStyle(.plain)
+                            .modifier(ProductRowActions(product: entry.product, store: storeFilter))
+                            .listRowSeparatorTint(Theme.separator)
+                        }
                     }
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .padding(.vertical, 18)
-                    .contentShape(Rectangle())
+
+                    Button {
+                        router.push(.statistics(nil, nil))
+                    } label: {
+                        VStack(alignment: .leading, spacing: 4) {
+                            Text("Statistics & charts")
+                                .font(AppFont.inter(17, .semibold))
+                                .foregroundStyle(Theme.primaryText)
+                            Text("Price progression · Store bars · Period changes")
+                                .font(AppFont.inter(14))
+                                .foregroundStyle(Theme.secondaryText)
+                        }
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .padding(.vertical, 18)
+                        .contentShape(Rectangle())
+                    }
+                    .buttonStyle(.plain)
+                    .overlay(alignment: .top) { SeparatorLine() }
+                    .overlay(alignment: .bottom) { SeparatorLine() }
+                    .padding(.top, 16)
+                    .listRowSeparator(.hidden)
                 }
-                .buttonStyle(.plain)
-                .overlay(alignment: .top) { SeparatorLine() }
-                .overlay(alignment: .bottom) { SeparatorLine() }
+                .listRowBackground(Theme.background)
+                .listRowInsets(EdgeInsets(top: 0, leading: 24, bottom: 0, trailing: 24))
             }
+            .listStyle(.plain)
+            .scrollContentBackground(.hidden)
+            .environment(\.defaultMinListRowHeight, 44)
         }
         .fullScreenCover(isPresented: $showMenu) {
             JournalMenuView { route in
@@ -244,6 +262,11 @@ struct JournalMenuView: View {
                     title: "Stores",
                     subtitle: "Your usual stores and individual branches"
                 ) { onSelect(.stores) }
+                SeparatorLine()
+                MenuRow(
+                    title: "Archived products",
+                    subtitle: "View history or resume tracking"
+                ) { onSelect(.archivedProducts) }
                 SeparatorLine()
                 MenuRow(
                     title: "Settings",
@@ -352,10 +375,6 @@ struct JournalFiltersView: View {
 
 struct WelcomeView: View {
     @EnvironmentObject private var router: AppRouter
-    @State private var showAdd = false
-    @State private var showRestore = false
-    @State private var pendingProduct: Product?
-    @State private var pendingFirstSave = false
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
@@ -377,8 +396,8 @@ struct WelcomeView: View {
             .padding(.top, 18)
 
             VStack(spacing: 8) {
-                PrimaryButton(title: "Add your first product") { showAdd = true }
-                SecondaryButton(title: "Restore a backup") { showRestore = true }
+                PrimaryButton(title: "Add your first product") { router.showFirstProduct = true }
+                SecondaryButton(title: "Restore a backup") { router.showInitialRestore = true }
             }
             .padding(.top, 200)
 
@@ -391,21 +410,5 @@ struct WelcomeView: View {
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .leading)
         .background(Theme.background.ignoresSafeArea())
         .toolbar(.hidden, for: .navigationBar)
-        .fullScreenCover(isPresented: $showAdd, onDismiss: {
-            if let pendingProduct {
-                self.pendingProduct = nil
-                router.push(pendingFirstSave ? .productFirstSave(pendingProduct) : .product(pendingProduct))
-                pendingFirstSave = false
-            }
-        }) {
-            AddProductFlow(mode: .onboarding) { product in
-                pendingProduct = product
-                pendingFirstSave = !product.observations.isEmpty
-                showAdd = false
-            }
-        }
-        .fullScreenCover(isPresented: $showRestore) {
-            RestoreBackupSheet()
-        }
     }
 }

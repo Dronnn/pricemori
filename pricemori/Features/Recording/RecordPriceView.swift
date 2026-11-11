@@ -4,10 +4,12 @@ import SwiftData
 struct RecordPriceView: View {
     let product: Product
     var initialStore: StoreLocation?
+    var initialObservation: PriceObservation? = nil
     let onSaved: (PriceObservation) -> Void
 
     @Environment(\.dismiss) private var dismiss
     @Environment(\.modelContext) private var context
+    @State private var saveError = false
     @Query(sort: \StoreLocation.createdAt) private var stores: [StoreLocation]
 
     @State private var draft = ObservationDraft()
@@ -20,6 +22,9 @@ struct RecordPriceView: View {
     @State private var showValidation = false
     @State private var showDiscard = false
     @State private var didLoad = false
+    @State private var initialDraft: ObservationDraft?
+    @State private var initialStoreID: UUID?
+    @State private var suggestedDraft: ObservationDraft?
 
     private var latestAtStore: PriceObservation? {
         guard let selectedStore else { return nil }
@@ -48,18 +53,20 @@ struct RecordPriceView: View {
     }
 
     private var hasDraftChanges: Bool {
-        !draft.priceText.trimmingCharacters(in: .whitespaces).isEmpty
-            || draft.condition != .regular
-            || !Calendar.current.isDateInToday(draft.observedAt)
+        initialDraft.map { $0 != draft || initialStoreID != selectedStore?.id } ?? false
     }
 
     var body: some View {
-        ScreenScaffold(
+        NavigationStack { formScreen }
+    }
+
+    private var formScreen: some View {
+        ScreenScaffold(saveError: $saveError,
             title: "Record price",
             backLabel: "Cancel",
             showsBackChevron: false,
             backAction: { cancelTapped() },
-            topPadding: 8,
+            topPadding: 16,
             footer: {
                 PrimaryButton(title: "Save observation") { save() }
             }
@@ -94,20 +101,22 @@ struct RecordPriceView: View {
                     Text(priceLabel)
                         .font(AppFont.inter(13))
                         .foregroundStyle(Theme.secondaryText)
-                    HStack(spacing: 10) {
+                    AdaptiveControlRow {
                         OutlinedField(placeholder: "0", text: $draft.priceText, keyboard: .decimalPad)
                         Button {
                             showCurrency = true
                         } label: {
                             HStack {
                                 Text(draft.currencyCode)
+                                    .fixedSize(horizontal: true, vertical: true)
                                     .font(AppFont.inter(16))
                                     .foregroundStyle(Theme.primaryText)
                                 Spacer()
                             }
                             .padding(.horizontal, 14)
-                            .frame(width: 100, height: 48)
+                            .frame(minWidth: 100, minHeight: 48)
                             .overlay { RoundedRectangle(cornerRadius: 10).stroke(Theme.separator) }
+                            .contentShape(Rectangle())
                         }
                         .buttonStyle(.plain)
                     }
@@ -125,13 +134,13 @@ struct RecordPriceView: View {
                     FormRow(
                         label: draft.condition == .regular ? "Regular price" : draft.condition.shortTitle,
                         value: "",
-                        detail: "Offer conditions"
+                        detail: draft.condition == .card && !draft.conditionLabel.isEmpty ? draft.conditionLabel : "Offer conditions"
                     ) { showConditions = true }
                 }
 
                 if let latestAtStore {
                     VStack(alignment: .leading, spacing: 3) {
-                        Text(L10n.format("Previous at this branch: %@ %@ / %@", latestAtStore.unitPrice.map { Format.number($0, maxFraction: 2) } ?? Format.money(latestAtStore.price, currency: latestAtStore.currencyCode), latestAtStore.currencyCode, latestAtStore.baseUnitSymbol ?? L10n.string("package")))
+                        Text(L10n.format("Previous at this branch: %@ %@ / %@", latestAtStore.unitPrice.map { Format.number($0, maxFraction: 2) } ?? Format.number(latestAtStore.effectivePackagePrice, maxFraction: 2), latestAtStore.currencyCode, latestAtStore.baseUnitSymbol ?? L10n.string("package")))
                         Text(Format.dateAndAge(latestAtStore.observedAt))
                     }
                     .font(AppFont.inter(14))
@@ -177,24 +186,26 @@ struct RecordPriceView: View {
     private func loadInitial() {
         guard !didLoad else { return }
         didLoad = true
-        selectedStore = initialStore ?? stores.first { !$0.isArchived }
+        selectedStore = initialStore.flatMap { $0.isArchived ? nil : $0 }
         draft.currencyCode = UserDefaults.standard.string(forKey: "currencyCode") ?? "AMD"
         draft.source = ObservationSource(rawValue: UserDefaults.standard.string(forKey: "defaultSource") ?? "") ?? .shelf
+        suggestedDraft = draft
         if let selectedStore {
             loadTemplate(for: selectedStore)
         }
+        initialDraft = draft
+        initialStoreID = selectedStore?.id
     }
 
     private func loadTemplate(for store: StoreLocation) {
-        let latest = PriceMath.latestObservation(for: product, store: store, condition: .regular)
-            ?? product.latestRegularObservation
+        let latest = initialObservation.flatMap { $0.store?.id == store.id ? $0 : nil }
+            ?? PriceMath.latestObservation(for: product, store: store, condition: .regular)
+            ?? product.latestObservation
         if let latest {
-            draft.applyTemplate(from: latest)
-            draft.observedAt = .now
-            draft.condition = .regular
-            draft.conditionLabel = ""
-            draft.conditionEndDate = nil
-            draft.multiBuyMinimum = 1
+            let baseline = suggestedDraft ?? draft
+            guard draft == baseline else { return }
+            draft.suggestTemplate(from: latest, ifUneditedSince: baseline, at: store)
+            suggestedDraft = draft
         }
     }
 
@@ -207,14 +218,14 @@ struct RecordPriceView: View {
     }
 
     private func save() {
-        guard let selectedStore, draft.hasValidPrice, draft.hasValidQuantity,
+        guard let selectedStore, !selectedStore.isArchived, draft.hasValidPrice, draft.hasValidQuantity,
               let observation = draft.makeObservation(product: product, store: selectedStore)
         else {
             showValidation = true
             return
         }
         context.insert(observation)
-        try? context.save()
+        guard context.saveReportingError(&saveError) else { return }
         onSaved(observation)
         dismiss()
     }
@@ -227,6 +238,7 @@ struct StorePickerView: View {
 
     @Environment(\.dismiss) private var dismiss
     @Environment(\.modelContext) private var context
+    @State private var saveError = false
     @Query(sort: \StoreLocation.createdAt) private var stores: [StoreLocation]
 
     @State private var search = ""
@@ -255,7 +267,11 @@ struct StorePickerView: View {
     }
 
     var body: some View {
-        ScreenScaffold(title: "Choose a store", backLabel: "Back") {
+        NavigationStack { formScreen }
+    }
+
+    private var formScreen: some View {
+        ScreenScaffold(saveError: $saveError, title: "Choose a store", backLabel: "Back") {
             VStack(alignment: .leading, spacing: 18) {
                 VStack(alignment: .leading, spacing: 8) {
                     Text("Find a saved location")
@@ -264,8 +280,10 @@ struct StorePickerView: View {
                     TextField("Search stores or branches", text: $search)
                         .font(AppFont.inter(16))
                         .padding(.horizontal, 14)
-                        .frame(height: 48)
+                        .padding(.vertical, 12)
+                        .frame(minHeight: 48)
                         .overlay { RoundedRectangle(cornerRadius: 10).stroke(Theme.separator) }
+                        .contentShape(Rectangle())
                         .autocorrectionDisabled()
                 }
 
@@ -324,8 +342,6 @@ struct StorePickerView: View {
         }
         .fullScreenCover(isPresented: $showAdd) {
             StoreFormView(mode: .add) { store in
-                context.insert(store)
-                try? context.save()
                 showAdd = false
                 choose(store)
             }

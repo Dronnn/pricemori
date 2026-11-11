@@ -4,6 +4,7 @@ import SwiftData
 struct StoresView: View {
     @EnvironmentObject private var router: AppRouter
     @Environment(\.modelContext) private var context
+    @State private var saveError = false
     @Query(sort: \StoreLocation.createdAt) private var stores: [StoreLocation]
 
     @State private var search = ""
@@ -21,10 +22,10 @@ struct StoresView: View {
     }
 
     var body: some View {
-        ScreenScaffold(
+        ScreenScaffold(saveError: $saveError,
             title: "Stores",
             backLabel: "Journal",
-            topPadding: 8,
+            topPadding: 16,
             trailing: {
                 HeaderActionButton(title: "+ Add") { showAdd = true }
             },
@@ -58,8 +59,10 @@ struct StoresView: View {
                         TextField("Store name, branch or address", text: $search)
                             .font(AppFont.inter(16))
                             .padding(.horizontal, 14)
-                            .frame(height: 48)
+                            .padding(.vertical, 12)
+                            .frame(minHeight: 48)
                             .overlay { RoundedRectangle(cornerRadius: 10).stroke(Theme.separator) }
+                            .contentShape(Rectangle())
                             .autocorrectionDisabled()
                     }
 
@@ -100,8 +103,6 @@ struct StoresView: View {
         }
         .fullScreenCover(isPresented: $showAdd) {
             StoreFormView(mode: .add) { store in
-                context.insert(store)
-                try? context.save()
                 showAdd = false
             }
         }
@@ -114,15 +115,16 @@ struct StoreDetailView: View {
     @EnvironmentObject private var router: AppRouter
     @Environment(\.dismiss) private var dismiss
     @Environment(\.modelContext) private var context
+    @State private var saveError = false
 
     @State private var showEdit = false
 
     private var products: [Product] {
-        store.sortedProducts.filter { !$0.isArchived }
+        store.sortedProducts
     }
 
     var body: some View {
-        ScreenScaffold(
+        ScreenScaffold(saveError: $saveError,
             title: "Store",
             backLabel: "Stores",
             trailing: {
@@ -148,15 +150,18 @@ struct StoreDetailView: View {
                     LazyVStack(spacing: 0) {
                         ForEach(products) { product in
                             Button {
-                                router.push(.productFromStore(product))
+                                router.push(.productFromStore(product, store))
                             } label: {
                                 HStack(alignment: .top, spacing: 12) {
                                     VStack(alignment: .leading, spacing: 4) {
                                         Text(product.displayName)
                                             .font(AppFont.inter(16, .medium))
                                             .foregroundStyle(Theme.primaryText)
-                                        if let latest = PriceMath.latestObservation(for: product, store: store, condition: .regular) {
-                                            Text("\(latest.unitPrice.map { Format.number($0, maxFraction: 2) } ?? Format.money(latest.price, currency: latest.currencyCode)) \(latest.currencyCode) / \(latest.baseUnitSymbol ?? "package") · \(Format.date(latest.observedAt))")
+                                        if product.isArchived {
+                                            Text("Archived products").font(AppFont.inter(13)).foregroundStyle(Theme.secondaryText)
+                                        }
+                                        if let latest = PriceMath.latestObservation(for: product, store: store) {
+                                            Text("\(latest.unitPrice.map { Format.number($0, maxFraction: 2) } ?? Format.number(latest.effectivePackagePrice, maxFraction: 2)) \(latest.currencyCode) / \(latest.baseUnitSymbol ?? "package") · \(Format.date(latest.observedAt))")
                                                 .font(AppFont.inter(14))
                                                 .foregroundStyle(Theme.secondaryText)
                                             Text("\(latest.condition.shortTitle) · \(latest.source.title)")
@@ -190,9 +195,6 @@ struct StoreDetailView: View {
             StoreFormView(mode: .edit(store)) { _ in
                 showEdit = false
             } onArchive: { archived in
-                archived.isArchived = true
-                archived.archivedAt = .now
-                try? context.save()
                 showEdit = false
                 dismiss()
             }
@@ -203,6 +205,7 @@ struct StoreDetailView: View {
 struct ArchivedStoresView: View {
     @Environment(\.dismiss) private var dismiss
     @Environment(\.modelContext) private var context
+    @State private var saveError = false
     @Query(sort: \StoreLocation.createdAt) private var stores: [StoreLocation]
 
     @State private var search = ""
@@ -215,7 +218,7 @@ struct ArchivedStoresView: View {
     }
 
     var body: some View {
-        ScreenScaffold(
+        ScreenScaffold(saveError: $saveError,
             title: "Archived stores",
             backLabel: "Stores",
             footer: {
@@ -227,8 +230,10 @@ struct ArchivedStoresView: View {
                 TextField("Search archived stores", text: $search)
                     .font(AppFont.inter(16))
                     .padding(.horizontal, 14)
-                    .frame(height: 48)
+                    .padding(.vertical, 12)
+                    .frame(minHeight: 48)
                     .overlay { RoundedRectangle(cornerRadius: 10).stroke(Theme.separator) }
+                    .contentShape(Rectangle())
                     .autocorrectionDisabled()
 
                 if archived.isEmpty {
@@ -247,7 +252,7 @@ struct ArchivedStoresView: View {
                                 Button("Restore this location") {
                                     store.isArchived = false
                                     store.archivedAt = nil
-                                    try? context.save()
+                                    guard context.saveReportingError(&saveError) else { return }
                                 }
                                 .font(AppFont.inter(15, .medium))
                                 .foregroundStyle(Theme.secondaryText)
@@ -271,73 +276,116 @@ struct ArchivedStoresView: View {
 
 struct ArchivedProductsView: View {
     @EnvironmentObject private var router: AppRouter
-    @Environment(\.dismiss) private var dismiss
     @Environment(\.modelContext) private var context
+    @State private var saveError = false
     @Query(sort: \Product.createdAt) private var products: [Product]
-
     @State private var search = ""
+    @State private var restoredName: String?
+    @State private var deletingProduct: Product?
 
+    private var allArchived: [Product] { products.filter(\.isArchived) }
     private var archived: [Product] {
-        let base = products.filter(\.isArchived)
-        let query = search.trimmingCharacters(in: .whitespaces).lowercased()
-        guard !query.isEmpty else { return base }
-        return base.filter { $0.searchText.contains(query) }
+        let query = search.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+        return allArchived.filter { query.isEmpty || $0.searchText.contains(query) }
+            .sorted { ($0.archivedAt ?? $0.createdAt) > ($1.archivedAt ?? $1.createdAt) }
     }
 
     var body: some View {
-        ScreenScaffold(
-            title: "Archived products",
-            backLabel: "Settings",
-            footer: {
-                SecondaryButton(title: "Back to Journal") {
-                    dismiss()
-                    router.reset()
-                }
-            }
+        ScreenScaffold(saveError: $saveError, title: "Archived products", backLabel: "Back", scrollsContent: false,
+            footer: { SecondaryButton(title: "Back to Journal") { router.reset() } }
         ) {
-            VStack(alignment: .leading, spacing: 16) {
-                FieldLabel(text: "Find an archived product")
-                TextField("Search products", text: $search)
-                    .font(AppFont.inter(16))
-                    .padding(.horizontal, 14)
-                    .frame(height: 48)
-                    .overlay { RoundedRectangle(cornerRadius: 10).stroke(Theme.separator) }
-                    .autocorrectionDisabled()
+            List {
+                Group {
+                    VStack(alignment: .leading, spacing: 12) {
+                        InfoText(text: "Archived products are hidden from Journal. Their history is kept.")
+                        TextField("Search products", text: $search)
+                            .font(AppFont.inter(16))
+                            .padding(14)
+                            .overlay { RoundedRectangle(cornerRadius: 10).stroke(Theme.separator) }
+                            .contentShape(Rectangle())
+                            .autocorrectionDisabled()
+                        if let restoredName {
+                            Text(L10n.format("%@ restored to Journal.", restoredName))
+                                .font(AppFont.inter(14)).foregroundStyle(Theme.accent)
+                                .accessibilityIdentifier("archive-restore-confirmation")
+                        }
+                    }
+                    .padding(.top, 16)
+                    .padding(.bottom, 24)
+                    .listRowSeparator(.hidden)
 
-                if archived.isEmpty {
-                    InfoText(text: "No archived products.")
-                        .padding(.top, 20)
-                } else {
-                    LazyVStack(spacing: 0) {
-                        ForEach(archived) { product in
-                            VStack(alignment: .leading, spacing: 8) {
-                                Text(product.displayName)
-                                    .font(AppFont.inter(16, .medium))
-                                    .foregroundStyle(Theme.primaryText)
-                                Text("\(product.observations.count) observations · Archived \(product.archivedAt.map { Format.relativeAge($0).lowercased() } ?? "")\nHistory is kept")
-                                    .font(AppFont.inter(14))
-                                    .foregroundStyle(Theme.secondaryText)
-                                Button("Restore \(product.name)") {
-                                    product.isArchived = false
-                                    product.archivedAt = nil
-                                    try? context.save()
+                    if archived.isEmpty {
+                        VStack(alignment: .leading, spacing: 8) {
+                            Text(L10n.string(allArchived.isEmpty ? "No archived products." : "No matching products"))
+                                .font(AppFont.inter(17, .medium))
+                            InfoText(text: allArchived.isEmpty
+                                ? "Restored products return to the Journal with all their earlier prices."
+                                : "Search name, brand or model")
+                        }
+                        .padding(.vertical, 20)
+                        .listRowSeparator(.hidden)
+                    }
+                    ForEach(archived) { product in
+                        VStack(alignment: .leading, spacing: 8) {
+                            Button { router.push(.productFromArchive(product)) } label: {
+                                HStack {
+                                    VStack(alignment: .leading, spacing: 5) {
+                                        Text(product.displayName).font(AppFont.inter(17, .medium))
+                                        Text("\(product.observations.count) observations · Archived \(product.archivedAt.map { Format.relativeAge($0).lowercased() } ?? "")\nHistory is kept")
+                                            .font(AppFont.inter(14)).foregroundStyle(Theme.secondaryText)
+                                    }
+                                    Spacer()
+                                    Image(systemName: "chevron.right").font(.caption)
                                 }
-                                .font(AppFont.inter(15, .medium))
-                                .foregroundStyle(Theme.secondaryText)
-                                .buttonStyle(.plain)
+                                .foregroundStyle(Theme.primaryText)
                                 .frame(minHeight: 44)
                                 .contentShape(Rectangle())
-                            }
-                            .frame(maxWidth: .infinity, alignment: .leading)
-                            .padding(.vertical, 14)
-                            SeparatorLine()
+                            }.buttonStyle(.plain)
+                            Button("Restore \(product.name)") { restore(product) }
+                                .font(AppFont.inter(15, .semibold))
+                                .foregroundStyle(Theme.accent)
+                                .frame(minHeight: 44)
+                                .contentShape(Rectangle())
+                                .buttonStyle(.plain)
+                        }
+                        .padding(.vertical, 8)
+                        .swipeActions(edge: .leading, allowsFullSwipe: false) {
+                            Button { restore(product) } label: { Label("Restore product", systemImage: "arrow.uturn.backward") }
+                                .tint(Theme.accent)
+                        }
+                        .contextMenu {
+                            Button("History") { router.push(.allHistory(product)) }
+                            Button("Restore product") { restore(product) }
+                            Button("Delete product…", role: .destructive) { deletingProduct = product }
                         }
                     }
                 }
-
-                InfoText(text: "Restored products return to the Journal with all their earlier prices.")
-                    .padding(.top, 12)
+                .listRowBackground(Theme.background)
+                .listRowInsets(EdgeInsets(top: 0, leading: 24, bottom: 0, trailing: 24))
             }
+            .listStyle(.plain)
+            .scrollContentBackground(.hidden)
         }
+        .alert("Delete product permanently?", isPresented: Binding(
+            get: { deletingProduct != nil }, set: { if !$0 { deletingProduct = nil } }
+        )) {
+            Button("Cancel", role: .cancel) { deletingProduct = nil }
+            Button("Delete product", role: .destructive) {
+                guard let product = deletingProduct else { return }
+                deletingProduct = nil
+                context.delete(product)
+                _ = context.saveReportingError(&saveError)
+            }
+        } message: {
+            Text(L10n.format("Delete %@ and all %lld recorded prices? This cannot be undone.", deletingProduct?.name ?? "", deletingProduct?.observations.count ?? 0))
+        }
+    }
+
+    private func restore(_ product: Product) {
+        let name = product.name
+        product.isArchived = false
+        product.archivedAt = nil
+        guard context.saveReportingError(&saveError) else { return }
+        restoredName = name
     }
 }

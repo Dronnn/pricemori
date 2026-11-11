@@ -8,7 +8,7 @@ final class WorkflowUITests: XCTestCase {
     @MainActor
     func testArchiveAndRestoreProduct() throws {
         let app = XCUIApplication()
-        app.launchArguments = ["-in-memory", "-seed-sample", "-reset-language"]
+        app.launchArguments = ["-in-memory", "-seed-sample", "-skip-onboarding", "-reset-language"]
         app.launch()
 
         app.buttons.containing(.staticText, identifier: "Buckwheat · Brand X").firstMatch.tap()
@@ -30,7 +30,7 @@ final class WorkflowUITests: XCTestCase {
     @MainActor
     func testAddEarlierObservationAndUndo() throws {
         let app = XCUIApplication()
-        app.launchArguments = ["-in-memory", "-seed-sample", "-reset-language"]
+        app.launchArguments = ["-in-memory", "-seed-sample", "-skip-onboarding", "-reset-language"]
         app.launch()
 
         app.buttons.containing(.staticText, identifier: "Buckwheat · Brand X").firstMatch.tap()
@@ -51,7 +51,7 @@ final class WorkflowUITests: XCTestCase {
     @MainActor
     func testDeleteObservationAndUndo() throws {
         let app = XCUIApplication()
-        app.launchArguments = ["-in-memory", "-seed-sample", "-reset-language"]
+        app.launchArguments = ["-in-memory", "-seed-sample", "-skip-onboarding", "-reset-language"]
         app.launch()
 
         app.buttons.containing(.staticText, identifier: "Buckwheat · Brand X").firstMatch.tap()
@@ -73,7 +73,7 @@ final class WorkflowUITests: XCTestCase {
     @MainActor
     func testUnknownPackageSizeSave() throws {
         let app = XCUIApplication()
-        app.launchArguments = ["-in-memory", "-seed-sample", "-reset-language"]
+        app.launchArguments = ["-in-memory", "-seed-sample", "-skip-onboarding", "-reset-language"]
         app.launch()
 
         app.buttons.containing(.staticText, identifier: "Buckwheat · Brand X").firstMatch.tap()
@@ -97,7 +97,7 @@ final class WorkflowUITests: XCTestCase {
     @MainActor
     func testCardConditionAndOfferDetail() throws {
         let app = XCUIApplication()
-        app.launchArguments = ["-in-memory", "-seed-sample", "-reset-language"]
+        app.launchArguments = ["-in-memory", "-seed-sample", "-skip-onboarding", "-reset-language"]
         app.launch()
 
         app.buttons.containing(.staticText, identifier: "Buckwheat · Brand X").firstMatch.tap()
@@ -136,7 +136,7 @@ final class WorkflowUITests: XCTestCase {
     @MainActor
     func testDiscardDraftConfirmation() throws {
         let app = XCUIApplication()
-        app.launchArguments = ["-in-memory", "-seed-sample", "-reset-language"]
+        app.launchArguments = ["-in-memory", "-seed-sample", "-skip-onboarding", "-reset-language"]
         app.launch()
 
         app.buttons.containing(.staticText, identifier: "Buckwheat · Brand X").firstMatch.tap()
@@ -161,7 +161,7 @@ final class WorkflowUITests: XCTestCase {
     @MainActor
     func testSearchAndFavorites() throws {
         let app = XCUIApplication()
-        app.launchArguments = ["-in-memory", "-seed-sample", "-reset-language"]
+        app.launchArguments = ["-in-memory", "-seed-sample", "-skip-onboarding", "-reset-language"]
         app.launch()
 
         app.buttons["Search name, brand or model"].tap()
@@ -190,7 +190,7 @@ final class WorkflowUITests: XCTestCase {
     @MainActor
     func testDonationScreenShowsTiersAndSelection() throws {
         let app = XCUIApplication()
-        app.launchArguments = ["-in-memory", "-seed-sample", "-reset-language"]
+        app.launchArguments = ["-in-memory", "-seed-sample", "-skip-onboarding", "-reset-language"]
         app.launch()
 
         app.buttons["Support Pricemori"].tap()
@@ -215,7 +215,7 @@ final class WorkflowUITests: XCTestCase {
     @MainActor
     func testZLanguageSwitchUpdatesImmediately() throws {
         let app = XCUIApplication()
-        app.launchArguments = ["-in-memory", "-seed-sample", "-reset-language"]
+        app.launchArguments = ["-in-memory", "-seed-sample", "-skip-onboarding", "-reset-language"]
         app.launch()
 
         app.buttons["Menu"].tap()
@@ -242,7 +242,7 @@ final class WorkflowUITests: XCTestCase {
     @MainActor
     func testVisibleTapTargetsMeet44Points() throws {
         let app = XCUIApplication()
-        app.launchArguments = ["-in-memory", "-seed-sample", "-reset-language"]
+        app.launchArguments = ["-in-memory", "-seed-sample", "-skip-onboarding", "-reset-language"]
         app.launch()
 
         assertTapTargets(in: app, context: "Journal")
@@ -261,7 +261,7 @@ final class WorkflowUITests: XCTestCase {
     @MainActor
     func testAddStore() throws {
         let app = XCUIApplication()
-        app.launchArguments = ["-in-memory", "-seed-sample", "-reset-language"]
+        app.launchArguments = ["-in-memory", "-seed-sample", "-skip-onboarding", "-reset-language"]
         app.launch()
 
         app.buttons["Menu"].tap()

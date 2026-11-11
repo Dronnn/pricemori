@@ -13,6 +13,10 @@ struct CurrencyPickerView: View {
     }
 
     var body: some View {
+        NavigationStack { formScreen }
+    }
+
+    private var formScreen: some View {
         ScreenScaffold(
             title: "Currency",
             backLabel: "Cancel",
@@ -30,7 +34,8 @@ struct CurrencyPickerView: View {
                     .font(AppFont.inter(16))
                     .foregroundStyle(Theme.primaryText)
                     .padding(.horizontal, 14)
-                    .frame(height: 48)
+                    .padding(.vertical, 12)
+                    .frame(minHeight: 48)
                     .overlay {
                         RoundedRectangle(cornerRadius: 10).stroke(Theme.separator)
                     }
@@ -72,7 +77,9 @@ struct PriceBasisView: View {
         guard let currentPrice, let quantity, quantity > 0, sizeKnown else { return nil }
         let base = quantity * unit.baseMultiplier
         guard base > 0 else { return nil }
-        return currentPrice / base
+        let total = Format.roundedForCurrency(currentPrice, currency: draft.currencyCode)
+        let effective = draft.condition == .multiBuy ? total / Decimal(max(2, draft.multiBuyMinimum)) : total
+        return effective / base
     }
 
     private var footerTitle: String {
@@ -82,6 +89,10 @@ struct PriceBasisView: View {
     }
 
     var body: some View {
+        NavigationStack { formScreen }
+    }
+
+    private var formScreen: some View {
         ScreenScaffold(
             title: "Price basis",
             backLabel: "Cancel",
@@ -98,7 +109,7 @@ struct PriceBasisView: View {
             }
         ) {
             VStack(alignment: .leading, spacing: 20) {
-                HStack(spacing: 10) {
+                WrappingHStack {
                     FilterChip(title: "Package", isSelected: !isLoose && sizeKnown) {
                         isLoose = false
                         sizeKnown = true
@@ -114,7 +125,7 @@ struct PriceBasisView: View {
                         Text("Package amount *")
                             .font(AppFont.inter(13))
                             .foregroundStyle(Theme.secondaryText)
-                        HStack(spacing: 10) {
+                        AdaptiveControlRow {
                             OutlinedField(placeholder: "900", text: $quantityText, keyboard: .decimalPad)
                             Menu {
                                 ForEach(MeasurementUnit.allCases) { option in
@@ -131,8 +142,10 @@ struct PriceBasisView: View {
                                         .foregroundStyle(Theme.secondaryText)
                                 }
                                 .padding(.horizontal, 14)
-                                .frame(width: 108, height: 48)
+                                .padding(.vertical, 12)
+                                .frame(minWidth: 108, minHeight: 48)
                                 .overlay { RoundedRectangle(cornerRadius: 10).stroke(Theme.separator) }
+                                .contentShape(Rectangle())
                             }
                         }
                     }
@@ -224,6 +237,10 @@ struct ConditionsView: View {
     }
 
     var body: some View {
+        NavigationStack { formScreen }
+    }
+
+    private var formScreen: some View {
         ScreenScaffold(
             title: "Offer conditions",
             backLabel: "Cancel",
@@ -238,7 +255,7 @@ struct ConditionsView: View {
                     .font(AppFont.inter(15, .medium))
                     .foregroundStyle(Theme.primaryText)
 
-                HStack(spacing: 8) {
+                WrappingHStack {
                     ForEach(ObservationCondition.allCases) { option in
                         FilterChip(title: option.shortTitle, isSelected: condition == option) {
                             condition = option
@@ -270,7 +287,7 @@ struct ConditionsView: View {
                     }
                     VStack(alignment: .leading, spacing: 8) {
                         FieldLabel(text: "Total price for all packages *")
-                        HStack(spacing: 10) {
+                        AdaptiveControlRow {
                             OutlinedField(placeholder: "900", text: $totalText, keyboard: .decimalPad)
                             Text(draft.currencyCode)
                                 .font(AppFont.inter(16))
@@ -340,6 +357,10 @@ struct DateSourceView: View {
     @State private var source: ObservationSource = .shelf
 
     var body: some View {
+        NavigationStack { formScreen }
+    }
+
+    private var formScreen: some View {
         ScreenScaffold(
             title: "Date & source",
             backLabel: "Cancel",
@@ -360,7 +381,7 @@ struct DateSourceView: View {
                         .labelsHidden()
                         .datePickerStyle(.compact)
                         .tint(Theme.accent)
-                        .environment(\.locale, Locale(identifier: "en_GB"))
+                        .environment(\.locale, L10n.locale)
                     Text(Format.relativeThenDate(date))
                         .font(AppFont.inter(14))
                         .foregroundStyle(Theme.secondaryText)

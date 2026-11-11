@@ -6,6 +6,7 @@ struct DonationView: View {
 
     @ObservedObject private var store = DonationStore.shared
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
 
     @State private var selectedTierID = DonationTier.all[1].id
     @State private var didRequestProducts = false
@@ -69,7 +70,9 @@ struct DonationView: View {
             FieldLabel(text: "Choose an amount")
                 .padding(.top, 8)
 
-            LazyVGrid(columns: [GridItem(.flexible(), spacing: 10), GridItem(.flexible())], spacing: 10) {
+            LazyVGrid(columns: dynamicTypeSize.isAccessibilitySize
+                ? [GridItem(.flexible())]
+                : [GridItem(.flexible(), spacing: 12), GridItem(.flexible())], spacing: 12) {
                 ForEach(DonationTier.all) { tier in
                     DonationTierButton(
                         name: store.displayName(for: tier),
@@ -148,7 +151,7 @@ private struct DonationTierButton: View {
                     Text(name)
                         .font(AppFont.inter(13, .medium))
                         .foregroundStyle(isSelected ? Theme.accent : Theme.secondaryText)
-                        .lineLimit(1)
+                        .fixedSize(horizontal: false, vertical: true)
                     Spacer(minLength: 0)
                     if isSelected {
                         Image(systemName: "checkmark")
@@ -159,6 +162,7 @@ private struct DonationTierButton: View {
                 Text(price)
                     .font(AppFont.inter(22, .semibold))
                     .foregroundStyle(Theme.primaryText)
+                    .fixedSize(horizontal: false, vertical: true)
             }
             .padding(14)
             .frame(maxWidth: .infinity, minHeight: 76, alignment: .leading)

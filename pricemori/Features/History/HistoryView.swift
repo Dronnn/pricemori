@@ -2,6 +2,10 @@ import SwiftUI
 import SwiftData
 
 struct ObservationSnapshot {
+    let id: UUID
+    let originalProduct: Product?
+    let originalStore: StoreLocation?
+    let updatedAt: Date
     let price: Decimal
     let currencyCode: String
     let observedAt: Date
@@ -18,6 +22,10 @@ struct ObservationSnapshot {
     let note: String
 
     init(_ observation: PriceObservation) {
+        id = observation.id
+        originalProduct = observation.product
+        originalStore = observation.store
+        updatedAt = observation.updatedAt
         price = observation.price
         currencyCode = observation.currencyCode
         observedAt = observation.observedAt
@@ -36,10 +44,12 @@ struct ObservationSnapshot {
 
     func makeObservation(product: Product, store: StoreLocation) -> PriceObservation {
         PriceObservation(
+            id: id,
             price: price,
             currencyCode: currencyCode,
             observedAt: observedAt,
             createdAt: createdAt,
+            updatedAt: updatedAt,
             packageQuantity: packageQuantity,
             packageUnit: packageUnit,
             sizeKnown: sizeKnown,
@@ -50,9 +60,18 @@ struct ObservationSnapshot {
             multiBuyMinimum: multiBuyMinimum,
             source: source,
             note: note,
-            product: product,
-            store: store
+            product: originalProduct ?? product,
+            store: originalStore ?? store
         )
+    }
+}
+
+struct ObservationRemoval {
+    let snapshot: ObservationSnapshot
+    let store: StoreLocation
+
+    func restore(product: Product, context: ModelContext) {
+        context.insert(snapshot.makeObservation(product: product, store: store))
     }
 }
 
@@ -61,22 +80,33 @@ struct HistoryView: View {
     var store: StoreLocation?
     var condition: ObservationCondition = .regular
     var backLabel: String = "Product"
+    var referenceID: UUID? = nil
+    var currencyFilter: String? = nil
 
     @EnvironmentObject private var router: AppRouter
     @Environment(\.modelContext) private var context
+    @State private var saveError = false
 
     @State private var showEarlier = false
-    @State private var earlierObservation: PriceObservation?
+    @State private var earlierObservationID: UUID?
     @State private var earlierMessage: String?
     @State private var deletedSnapshot: ObservationSnapshot?
     @State private var deletedStore: StoreLocation?
     @State private var deletedMessage: String?
 
+    private var earlierObservation: PriceObservation? { product.observations.first { $0.id == earlierObservationID } }
+
     private var scopedStore: StoreLocation? {
-        store ?? product.latestRegularObservation?.store
+        store ?? product.latestObservation?.store
+    }
+
+    private var reference: PriceObservation? {
+        product.observations.first { $0.id == referenceID && $0.condition == condition && (currencyFilter == nil || $0.currencyCode == currencyFilter) }
     }
 
     private var currency: String {
+        if let currencyFilter { return currencyFilter }
+        if let reference { return reference.currencyCode }
         guard let scopedStore else { return "AMD" }
         return PriceMath.latestObservation(for: product, store: scopedStore, condition: condition)?.currencyCode ?? "AMD"
     }
@@ -84,10 +114,11 @@ struct HistoryView: View {
     private var observations: [PriceObservation] {
         guard let scopedStore else { return [] }
         return Array(product.observations
-            .filter {
-                $0.store?.id == scopedStore.id
-                    && $0.condition == condition
-                    && $0.currencyCode == currency
+            .filter { observation in
+                observation.store?.id == scopedStore.id
+                    && observation.condition == condition
+                    && observation.currencyCode == currency
+                    && (reference.map { PriceMath.sameOffer(observation, $0) } ?? true)
             }
             .sortedChronologically
             .reversed())
@@ -98,12 +129,15 @@ struct HistoryView: View {
     }
 
     var body: some View {
-        ScreenScaffold(
+        ScreenScaffold(saveError: $saveError,
             title: "History",
             backLabel: backLabel,
             topPadding: 20,
+            trailing: {
+                HeaderActionButton(title: "All observations") { router.push(.allHistory(product)) }
+            },
             footer: {
-                if condition == .regular {
+                if condition == .regular, !product.isArchived {
                     SecondaryButton(title: "Record an earlier observation") {
                         showEarlier = true
                     }
@@ -123,12 +157,12 @@ struct HistoryView: View {
                         .padding(.top, 10)
                 }
 
-                Text("Unit price · \(currency) / \(unitLabel) · \(condition.shortTitle)")
+                Text(currency + " · " + condition.shortTitle)
                     .font(AppFont.inter(14))
                     .foregroundStyle(Theme.secondaryText)
                     .padding(.top, 4)
 
-                if let earlierMessage {
+                if let earlierMessage, earlierObservation != nil {
                     SavedBanner(text: earlierMessage, undo: undoEarlier)
                         .padding(.top, 14)
                 }
@@ -137,13 +171,16 @@ struct HistoryView: View {
                         .padding(.top, 14)
                 }
 
-                HStack(spacing: 10) {
+                AdaptiveControlRow {
                     SegmentedChip(title: "List", isSelected: true) {}
                     SegmentedChip(title: "Chart", isSelected: false) {
                         if let scopedStore {
-                            router.push(.priceOverTime(product, scopedStore))
+                            if let chartReference = reference ?? observations.first {
+                                router.push(.scopedPriceOverTime(product, scopedStore, chartReference.id))
+                            }
                         }
                     }
+                    .disabled(observations.isEmpty)
                 }
                 .padding(.top, 20)
 
@@ -161,10 +198,10 @@ struct HistoryView: View {
                             )
                         } label: {
                             VStack(alignment: .leading, spacing: 4) {
-                                Text("\(Format.date(observation.observedAt)) · \(observation.unitPrice.map { Format.number($0, maxFraction: 2) } ?? Format.money(observation.price, currency: observation.currencyCode)) \(observation.currencyCode) / \(observation.baseUnitSymbol ?? "package")")
+                                Text("\(Format.timestamp(observation.observedAt)) · \(observation.unitPrice.map { Format.number($0, maxFraction: 2) } ?? Format.number(observation.effectivePackagePrice, maxFraction: 2)) \(observation.currencyCode) / \(observation.baseUnitSymbol ?? "package")")
                                     .font(AppFont.inter(16, .medium))
                                     .foregroundStyle(Theme.primaryText)
-                                Text("\(observation.packagePriceLine) · \(observation.source.title)")
+                                Text(observation.unitPrice == nil ? observation.source.title : "\(observation.packagePriceLine) · \(observation.source.title)")
                                     .font(AppFont.inter(14))
                                     .foregroundStyle(Theme.secondaryText)
                             }
@@ -179,31 +216,33 @@ struct HistoryView: View {
                 .padding(.top, 8)
 
                 if observations.isEmpty {
-                    InfoText(text: "No \(condition.shortTitle.lowercased()) observations at this branch yet.")
+                    InfoText(text: "No observations match this scope. Your saved prices are available in All observations.")
                         .padding(.top, 24)
                 }
             }
         }
         .fullScreenCover(isPresented: $showEarlier) {
             if let scopedStore {
-                EarlierPriceView(product: product, store: scopedStore) { observation in
-                    earlierObservation = observation
-                    earlierMessage = L10n.format("Earlier price added · %@. Latest remains %@.", Format.date(observation.observedAt), latestText)
+                NavigationStack {
+                    EarlierPriceView(product: product, store: scopedStore) { observation in
+                        earlierObservationID = observation.id
+                        earlierMessage = L10n.format("Earlier price added · %@. Latest remains %@.", Format.date(observation.observedAt), latestText)
+                    }
                 }
             }
         }
     }
 
     private var latestText: String {
-        guard let latest = observations.first, let unitPrice = latest.unitPrice else { return "" }
-        return "\(Format.number(unitPrice, maxFraction: 2)) \(latest.currencyCode) / \(latest.baseUnitSymbol ?? "")"
+        guard let latest = observations.first else { return "" }
+        return latest.unitPrice.map { "\(Format.number($0, maxFraction: 2)) \(latest.currencyCode) / \(latest.baseUnitSymbol ?? "unit")" } ?? latest.packagePriceLine
     }
 
     private func undoEarlier() {
         guard let earlierObservation else { return }
         context.delete(earlierObservation)
-        try? context.save()
-        self.earlierObservation = nil
+        guard context.saveReportingError(&saveError) else { return }
+        earlierObservationID = nil
         earlierMessage = nil
     }
 
@@ -211,7 +250,7 @@ struct HistoryView: View {
         guard let deletedSnapshot, let deletedStore else { return }
         let restored = deletedSnapshot.makeObservation(product: product, store: deletedStore)
         context.insert(restored)
-        try? context.save()
+        guard context.saveReportingError(&saveError) else { return }
         self.deletedSnapshot = nil
         self.deletedStore = nil
         deletedMessage = nil
@@ -221,17 +260,22 @@ struct HistoryView: View {
 struct ObservationDetailView: View {
     let product: Product
     let observation: PriceObservation
+    var backLabel: String = "History"
     var onDelete: (ObservationSnapshot) -> Void
 
+    @EnvironmentObject private var router: AppRouter
     @Environment(\.dismiss) private var dismiss
     @Environment(\.modelContext) private var context
+    @State private var saveError = false
 
     @State private var showCorrect = false
     @State private var showDeleteAlert = false
     @State private var showRecord = false
 
+    private var recordProduct: Product { observation.product ?? product }
+
     private var previous: PriceObservation? {
-        PriceMath.previousComparable(for: observation, among: product.observations)
+        PriceMath.previousComparable(for: observation, among: recordProduct.observations)
     }
 
     private var change: PriceChange? {
@@ -240,15 +284,15 @@ struct ObservationDetailView: View {
     }
 
     var body: some View {
-        ScreenScaffold(
+        ScreenScaffold(saveError: $saveError,
             title: "Observation",
-            backLabel: "History",
+            backLabel: backLabel,
             trailing: {
                 HeaderActionButton(title: "Correct") { showCorrect = true }
             }
         ) {
             VStack(alignment: .leading, spacing: 0) {
-                Text(product.displayName)
+                Text(recordProduct.displayName)
                     .font(AppFont.inter(16, .medium))
                     .foregroundStyle(Theme.primaryText)
 
@@ -300,7 +344,14 @@ struct ObservationDetailView: View {
                 }
 
                 VStack(spacing: 2) {
-                    SecondaryButton(title: "Record a new price") { showRecord = true }
+                    if let store = observation.store {
+                        SecondaryButton(title: "Chart this history") {
+                            router.push(.scopedPriceOverTime(recordProduct, store, observation.id))
+                        }
+                    }
+                    if !recordProduct.isArchived {
+                        SecondaryButton(title: "Record a new price") { showRecord = true }
+                    }
                     SecondaryButton(title: "Correct this observation") { showCorrect = true }
                     SecondaryButton(title: "Delete observation…", color: Theme.error) { showDeleteAlert = true }
                 }
@@ -308,17 +359,17 @@ struct ObservationDetailView: View {
             }
         }
         .fullScreenCover(isPresented: $showCorrect) {
-            CorrectEntryView(observation: observation)
+            NavigationStack { CorrectEntryView(observation: observation) }
         }
         .fullScreenCover(isPresented: $showRecord) {
-            RecordPriceView(product: product, initialStore: observation.store) { _ in }
+            RecordPriceView(product: recordProduct, initialStore: observation.store, initialObservation: observation) { _ in }
         }
         .alert("Delete this observation?", isPresented: $showDeleteAlert) {
             Button("Cancel", role: .cancel) {}
             Button("Delete", role: .destructive) {
                 let snapshot = ObservationSnapshot(observation)
                 context.delete(observation)
-                try? context.save()
+                guard context.saveReportingError(&saveError) else { return }
                 onDelete(snapshot)
                 dismiss()
             }
@@ -339,23 +390,28 @@ struct EarlierPriceView: View {
 
     @Environment(\.dismiss) private var dismiss
     @Environment(\.modelContext) private var context
+    @State private var saveError = false
 
     @State private var draft = ObservationDraft()
     @State private var showBasis = false
     @State private var showDateSource = false
     @State private var showValidation = false
     @State private var didLoad = false
+    @State private var initialDraft: ObservationDraft?
+    @State private var showDiscard = false
 
     private var latest: PriceObservation? {
         PriceMath.latestObservation(for: product, store: store, condition: .regular)
     }
 
     var body: some View {
-        ScreenScaffold(
+        ScreenScaffold(saveError: $saveError,
             title: "Earlier price",
             backLabel: "Cancel",
             showsBackChevron: false,
-            backAction: { dismiss() },
+            backAction: {
+                if let initialDraft, initialDraft != draft { showDiscard = true } else { dismiss() }
+            },
             footer: {
                 PrimaryButton(title: "Save earlier price") { save() }
             }
@@ -390,7 +446,7 @@ struct EarlierPriceView: View {
                 }
 
                 VStack(spacing: 0) {
-                    FormRow(label: "Package · \(draft.quantityText) \(draft.unit.symbol)", value: "", detail: draft.unitPricePreviewText) {
+                    FormRow(label: draft.sizeKnown ? "Package · \(draft.quantityText) \(draft.unit.symbol)" : "Package · Unknown", value: "", detail: draft.unitPricePreviewText) {
                         showBasis = true
                     }
                     SeparatorLine()
@@ -419,6 +475,11 @@ struct EarlierPriceView: View {
                     draft.sizeKnown = latest.sizeKnown
                     draft.isLoose = latest.isLoose
                 }
+                initialDraft = draft
+            }
+            .alert("Discard changes?", isPresented: $showDiscard) {
+                Button("Discard draft", role: .destructive) { dismiss() }
+                Button("Keep editing", role: .cancel) {}
             }
             .fullScreenCover(isPresented: $showBasis) { PriceBasisView(draft: $draft) }
             .fullScreenCover(isPresented: $showDateSource) { DateSourceView(draft: $draft) }
@@ -426,8 +487,8 @@ struct EarlierPriceView: View {
     }
 
     private var latestText: String {
-        guard let latest, let unitPrice = latest.unitPrice else { return "the same" }
-        return "\(Format.number(unitPrice, maxFraction: 2)) \(latest.currencyCode) / \(latest.baseUnitSymbol ?? "")"
+        guard let latest else { return "the same" }
+        return latest.unitPrice.map { "\(Format.number($0, maxFraction: 2)) \(latest.currencyCode) / \(latest.baseUnitSymbol ?? "unit")" } ?? latest.packagePriceLine
     }
 
     private var validationMessage: String {
@@ -452,7 +513,7 @@ struct EarlierPriceView: View {
             return
         }
         context.insert(observation)
-        try? context.save()
+        guard context.saveReportingError(&saveError) else { return }
         onSaved(observation)
         dismiss()
     }
@@ -463,19 +524,31 @@ struct CorrectEntryView: View {
 
     @Environment(\.dismiss) private var dismiss
     @Environment(\.modelContext) private var context
+    @State private var saveError = false
+    @Query(sort: \Product.createdAt) private var products: [Product]
+    @Query(sort: \StoreLocation.createdAt) private var stores: [StoreLocation]
+    @State private var selectedProduct: Product?
+    @State private var selectedStore: StoreLocation?
+    @State private var showLocation = false
 
     @State private var draft = ObservationDraft()
     @State private var showBasis = false
     @State private var showDateSource = false
+    @State private var showConditions = false
+    @State private var showCurrency = false
     @State private var showValidation = false
     @State private var didLoad = false
+    @State private var initialDraft: ObservationDraft?
+    @State private var showDiscard = false
 
     var body: some View {
-        ScreenScaffold(
+        ScreenScaffold(saveError: $saveError,
             title: "Correct entry",
             backLabel: "Cancel",
             showsBackChevron: false,
-            backAction: { dismiss() },
+            backAction: {
+                if hasChanges { showDiscard = true } else { dismiss() }
+            },
             footer: {
                 PrimaryButton(title: "Save correction") { save() }
             }
@@ -488,7 +561,7 @@ struct CorrectEntryView: View {
                 InfoText(text: "Correct a mistake in this saved record. For a newly observed price, create a new observation.")
 
                 VStack(alignment: .leading, spacing: 8) {
-                    Text("Price in \(draft.currencyCode) *")
+                    Text(draft.condition == .multiBuy ? L10n.format("Total price for %lld packages", draft.multiBuyMinimum) : L10n.format("Price in %@ *", draft.currencyCode))
                         .font(AppFont.inter(13))
                         .foregroundStyle(Theme.secondaryText)
                     OutlinedField(placeholder: "0", text: $draft.priceText, keyboard: .decimalPad)
@@ -498,7 +571,7 @@ struct CorrectEntryView: View {
                 }
 
                 VStack(spacing: 0) {
-                    FormRow(label: "Package · \(draft.quantityText) \(draft.unit.symbol)", value: "", detail: draft.unitPricePreviewText) {
+                    FormRow(label: draft.sizeKnown ? "Package · \(draft.quantityText) \(draft.unit.symbol)" : "Package · Unknown", value: "", detail: draft.unitPricePreviewText) {
                         showBasis = true
                     }
                     SeparatorLine()
@@ -506,6 +579,12 @@ struct CorrectEntryView: View {
                         showDateSource = true
                     }
                 }
+
+                FormRow(label: "Product and branch", value: "", detail: "\(selectedProduct?.displayName ?? "") · \(selectedStore?.displayName ?? "")") {
+                    showLocation = true
+                }
+                FormRow(label: "Currency", value: draft.currencyCode, detail: nil) { showCurrency = true }
+                FormRow(label: draft.condition.title, value: "", detail: draft.conditionLabel.isEmpty ? nil : draft.conditionLabel) { showConditions = true }
 
                 if showValidation {
                     Text("Enter an amount greater than zero and a package amount.")
@@ -526,27 +605,41 @@ struct CorrectEntryView: View {
                 draft.isLoose = observation.isLoose
                 draft.observedAt = observation.observedAt
                 draft.source = observation.source
+                draft.note = observation.note
+                draft.condition = observation.condition
+                draft.conditionLabel = observation.conditionLabel
+                draft.multiBuyMinimum = observation.multiBuyMinimum
+                draft.conditionEndDate = observation.conditionEndDate
+                selectedProduct = observation.product
+                selectedStore = observation.store
+                initialDraft = draft
             }
+            .alert("Discard changes?", isPresented: $showDiscard) {
+                Button("Discard draft", role: .destructive) { dismiss() }
+                Button("Keep editing", role: .cancel) {}
+            }
+            .fullScreenCover(isPresented: $showLocation) {
+                CorrectionLocationView(products: products, stores: stores, product: $selectedProduct, store: $selectedStore)
+            }
+            .fullScreenCover(isPresented: $showConditions) { ConditionsView(draft: $draft) }
+            .fullScreenCover(isPresented: $showCurrency) { CurrencyPickerView(draft: $draft) }
             .fullScreenCover(isPresented: $showBasis) { PriceBasisView(draft: $draft) }
             .fullScreenCover(isPresented: $showDateSource) { DateSourceView(draft: $draft) }
         }
     }
 
+    private var hasChanges: Bool {
+        (initialDraft.map { $0 != draft } ?? false)
+            || selectedProduct?.id != observation.product?.id || selectedStore?.id != observation.store?.id
+    }
+
     private func save() {
-        guard draft.hasValidPrice, draft.hasValidQuantity, let price = draft.price else {
+        guard let selectedProduct, let selectedStore,
+              draft.applyCorrection(to: observation, product: selectedProduct, store: selectedStore) else {
             showValidation = true
             return
         }
-        observation.price = Format.roundedForCurrency(price, currency: draft.currencyCode)
-        observation.currencyCode = draft.currencyCode
-        observation.observedAt = draft.observedAt
-        observation.packageQuantity = draft.sizeKnown ? draft.quantity : nil
-        observation.packageUnit = draft.sizeKnown ? draft.unit : nil
-        observation.sizeKnown = draft.sizeKnown && draft.quantity != nil
-        observation.isLoose = draft.isLoose
-        observation.source = draft.source
-        observation.updatedAt = .now
-        try? context.save()
+        guard context.saveReportingError(&saveError) else { return }
         dismiss()
     }
 }

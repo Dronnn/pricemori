@@ -13,15 +13,16 @@ enum SampleData {
     }
 
     @MainActor
-    static func seed(context: ModelContext) {
+    static func seed(context: ModelContext, reference: Date = .now) {
         let calendar = Calendar.current
-        let now = Date.now
+        let now = reference
         func day(_ offset: Int, hour: Int = 12, minute: Int = 0) -> Date {
             let base = calendar.date(byAdding: .day, value: offset, to: now) ?? now
             return calendar.date(bySettingHour: hour, minute: minute, second: 0, of: base) ?? base
         }
         func today(_ hour: Int, _ minute: Int = 0) -> Date {
-            min(day(0, hour: hour, minute: minute), now.addingTimeInterval(-1800))
+            let latest = min(day(0, hour: 9, minute: 35), now.addingTimeInterval(-1800))
+            return latest.addingTimeInterval(Double(hour * 60 + minute - (9 * 60 + 35)) * 60)
         }
 
         let sas = StoreLocation(name: "SAS", branch: "Komitas 12", city: "Yerevan", note: "Near home")

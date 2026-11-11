@@ -7,7 +7,7 @@ extension PriceObservation {
     }
 
     var headlineUnit: String {
-        if let unit = baseUnitSymbol { return "\(currencyCode) / \(unit)" }
+        if unitPrice != nil, let unit = baseUnitSymbol { return "\(currencyCode) / \(unit)" }
         return currencyCode
     }
 
@@ -16,7 +16,7 @@ extension PriceObservation {
         let amount = Format.money(effectivePackagePrice, currency: currencyCode)
         if condition == .multiBuy {
             let package = packageSummary.lowercased()
-            return "\(amount) \(currencyCode) / \(multiBuyMinimum) × \(package)"
+            return "\(Format.money(price, currency: currencyCode)) \(currencyCode) / \(multiBuyMinimum) × \(package)"
         }
         guard sizeKnown, let packageQuantity, let packageUnit else {
             return L10n.format("%@ %@ / package", amount, currencyCode)

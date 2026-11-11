@@ -3,9 +3,11 @@ import Testing
 @testable import pricemori
 
 @MainActor
+@Suite(.serialized)
 struct DonationTests {
     @Test func catalogLoadsAllTiers() async throws {
         let session = try SKTestSession(configurationFileNamed: "Pricemori")
+        session.resetToDefaultState()
         session.disableDialogs = true
         session.clearTransactions()
 
@@ -20,6 +22,7 @@ struct DonationTests {
 
     @Test func purchaseCompletesAsThankYou() async throws {
         let session = try SKTestSession(configurationFileNamed: "Pricemori")
+        session.resetToDefaultState()
         session.disableDialogs = true
         session.clearTransactions()
 

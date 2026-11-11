@@ -12,42 +12,48 @@ struct CompareStoresView: View {
     @EnvironmentObject private var router: AppRouter
     @State private var tab: Tab = .regular
     @State private var selectedOffer: PriceObservation?
+    @State private var selectedCurrency: String?
+
+    private var activeObservations: [PriceObservation] {
+        product.observations.filter { $0.store?.isArchived == false }.sortedChronologically
+    }
+
+    private var reference: PriceObservation? {
+        PriceMath.crossStoreReference(for: product, currency: currency)
+    }
 
     private var currency: String {
-        product.latestRegularObservation?.currencyCode ?? "AMD"
+        selectedCurrency ?? activeObservations.last { $0.condition == .regular }?.currencyCode ?? activeObservations.last?.currencyCode ?? "AMD"
     }
-
-    private var dimension: UnitDimension? {
-        PriceMath.dominantDimension(for: product.regularObservations)
-    }
+    private var currencies: [String] { Array(Set(activeObservations.map(\.currencyCode))).sorted() }
 
     private var storePrices: [StorePrice] {
         PriceMath.latestPerStore(for: product, condition: .regular, currency: currency)
             .filter { item in
-                guard let dimension else { return item.observation.unitPrice != nil }
-                return item.observation.packageUnit?.dimension == dimension && item.observation.unitPrice != nil
+                guard !item.store.isArchived, let reference else { return false }
+                return PriceMath.comparable(item.observation, reference)
             }
             .sorted { $0.observation.observedAt > $1.observation.observedAt }
     }
 
     private var conditionalOffers: [PriceObservation] {
-        Array(product.observations
-            .filter { $0.condition != .regular && !$0.isExpired }
+        Array(activeObservations
+            .filter { $0.condition != .regular && !$0.isExpired && $0.currencyCode == currency }
             .sortedChronologically
             .reversed())
     }
 
     private var excluded: [PriceObservation] {
-        product.regularObservations.filter { observation in
+        activeObservations.filter { $0.condition == .regular }.filter { observation in
             if observation.currencyCode != currency { return true }
             if observation.unitPrice == nil { return true }
-            if let dimension, observation.packageUnit?.dimension != dimension { return true }
+            if let reference, !PriceMath.compatibleUnits(observation, reference) { return true }
             return false
         }
     }
 
     private var unitLabel: String {
-        storePrices.first?.observation.baseUnitSymbol ?? "kg"
+        storePrices.first?.observation.baseUnitSymbol ?? "unit"
     }
 
     private var maximumPrice: Decimal {
@@ -59,8 +65,9 @@ struct CompareStoresView: View {
             title: "Compare stores",
             backLabel: "Back",
             footer: {
-                SecondaryButton(title: "Compare store histories") {
-                    router.push(.storeHistories(product))
+                VStack(spacing: 0) {
+                    SecondaryButton(title: "Compare store histories") { router.push(.storeHistories(product)) }
+                    SecondaryButton(title: "All observations") { router.push(.allHistory(product)) }
                 }
             }
         ) {
@@ -71,7 +78,19 @@ struct CompareStoresView: View {
                     .fixedSize(horizontal: false, vertical: true)
                     .padding(.bottom, 16)
 
-                HStack(spacing: 8) {
+                if currencies.count > 1 {
+                    Menu {
+                        ForEach(currencies, id: \.self) { code in
+                            Button(code) { selectedCurrency = code }
+                        }
+                    } label: {
+                        Label(currency, systemImage: "chevron.down")
+                            .font(AppFont.inter(15, .medium))
+                            .frame(minHeight: 44)
+                    }
+                }
+
+                WrappingHStack {
                     FilterChip(title: "Regular", isSelected: tab == .regular) { tab = .regular }
                     FilterChip(title: "Conditional", isSelected: tab == .conditional) { tab = .conditional }
                     FilterChip(title: "Excluded · \(excluded.count)", isSelected: tab == .excluded) { tab = .excluded }
@@ -126,6 +145,10 @@ struct CompareStoresView: View {
                     }
                     .padding(.vertical, 14)
                 }
+            }
+
+            if storePrices.isEmpty {
+                InfoText(text: "No comparable regular observations for this currency and unit.").padding(.top, 16)
             }
 
             if let lowest = storePrices.min(by: { ($0.unitPrice ?? 0) < ($1.unitPrice ?? 0) }), let unitPrice = lowest.unitPrice {
@@ -197,7 +220,7 @@ struct CompareStoresView: View {
 
     private func ratio(for item: StorePrice) -> CGFloat {
         guard maximumPrice > 0, let price = item.unitPrice else { return 0 }
-        return max(0.03, CGFloat(NSDecimalNumber(decimal: price / maximumPrice).doubleValue))
+        return CGFloat(NSDecimalNumber(decimal: price / maximumPrice).doubleValue)
     }
 
     private func stalenessLine(_ item: StorePrice) -> String {

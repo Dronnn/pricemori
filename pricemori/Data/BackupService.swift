@@ -6,6 +6,8 @@ import UniformTypeIdentifiers
 struct BackupSettings: Codable, Equatable {
     var currencyCode: String
     var defaultSource: String
+    // Optional so version 1 backups created before language preferences still restore.
+    var appLanguage: String? = nil
 }
 
 struct BackupProduct: Codable, Equatable, Identifiable {
@@ -112,7 +114,7 @@ struct BackupObservation: Codable, Equatable, Identifiable {
         isLoose = observation.isLoose
         condition = observation.condition.rawValue
         conditionLabel = observation.conditionLabel
-        conditionEndDate = observation.conditionEndDate
+        conditionEndDate = observation.conditionEndDate.map(Self.seconds)
         multiBuyMinimum = observation.multiBuyMinimum
         source = observation.source.rawValue
         note = observation.note
@@ -158,13 +160,18 @@ struct BackupObservation: Codable, Equatable, Identifiable {
         self.note = note
     }
 
-    private static func seconds(_ date: Date) -> Date {
+    private nonisolated static func seconds(_ date: Date) -> Date {
         Date(timeIntervalSince1970: date.timeIntervalSince1970.rounded(.down))
     }
 
-    var decimalPrice: Decimal? { Decimal(string: price, locale: Locale(identifier: "en_US_POSIX")) }
+    var decimalPrice: Decimal? { Self.decimal(price) }
     var decimalQuantity: Decimal? {
-        packageQuantity.flatMap { Decimal(string: $0, locale: Locale(identifier: "en_US_POSIX")) }
+        packageQuantity.flatMap(Self.decimal)
+    }
+
+    private nonisolated static func decimal(_ value: String) -> Decimal? {
+        guard value.range(of: #"^[+-]?[0-9]+(?:\.[0-9]+)?(?:[eE][+-]?[0-9]+)?$"#, options: .regularExpression) != nil else { return nil }
+        return Decimal(string: value, locale: Locale(identifier: "en_US_POSIX"))
     }
 }
 
@@ -228,19 +235,19 @@ enum BackupService {
     static let formatName = "pricemori.backup"
 
     @MainActor
-    static func makeBackup(context: ModelContext) throws -> BackupFile {
+    static func makeBackup(context: ModelContext, defaults: UserDefaults = .standard) throws -> BackupFile {
         let products = try context.fetch(FetchDescriptor<Product>())
         let stores = try context.fetch(FetchDescriptor<StoreLocation>())
         let observations = try context.fetch(FetchDescriptor<PriceObservation>())
 
-        let defaults = UserDefaults.standard
         return BackupFile(
             format: formatName,
             version: currentVersion,
             exportedAt: .now,
             settings: BackupSettings(
                 currencyCode: defaults.string(forKey: "currencyCode") ?? "AMD",
-                defaultSource: defaults.string(forKey: "defaultSource") ?? ObservationSource.shelf.rawValue
+                defaultSource: defaults.string(forKey: "defaultSource") ?? ObservationSource.shelf.rawValue,
+                appLanguage: defaults.string(forKey: AppLanguage.storageKey) ?? AppLanguage.system.rawValue
             ),
             products: products.sorted { $0.createdAt < $1.createdAt }.map { BackupProduct($0) },
             stores: stores.sorted { $0.createdAt < $1.createdAt }.map { BackupStore($0) },
@@ -274,8 +281,15 @@ enum BackupService {
         guard backup.format == formatName else {
             throw BackupError(message: "This is not a pricemori full backup. CSV exports do not restore the complete journal.")
         }
-        guard backup.version <= currentVersion else {
-            throw BackupError(message: "This backup uses a newer format that this version of the app cannot restore.")
+        guard backup.version == currentVersion else {
+            throw BackupError(message: "This backup uses a format version that this version of the app cannot restore.")
+        }
+
+        guard validCurrency(backup.settings.currencyCode),
+              ObservationSource(rawValue: backup.settings.defaultSource) != nil,
+              backup.settings.appLanguage.map({ AppLanguage(rawValue: $0) != nil }) ?? true
+        else {
+            throw BackupError(message: "The backup contains invalid entry defaults or language settings.")
         }
 
         let productIDs = Set(backup.products.map(\.id))
@@ -301,13 +315,22 @@ enum BackupService {
             guard let price = observation.decimalPrice, price > 0 else {
                 throw BackupError(message: "An observation has an invalid price.")
             }
-            guard observation.currencyCode.count == 3 else {
+            guard validCurrency(observation.currencyCode) else {
                 throw BackupError(message: "An observation has an invalid currency.")
             }
             guard ObservationCondition(rawValue: observation.condition) != nil,
                   ObservationSource(rawValue: observation.source) != nil
             else {
                 throw BackupError(message: "An observation has an unsupported condition or source.")
+            }
+            if observation.packageQuantity != nil {
+                guard let quantity = observation.decimalQuantity, quantity > 0 else {
+                    throw BackupError(message: "An observation has an invalid package amount.")
+                }
+            }
+            if let unit = observation.packageUnit,
+               MeasurementUnit(rawValue: unit) == nil && MeasurementUnit.fromSymbol(unit) == nil {
+                throw BackupError(message: "An observation has an unsupported package unit.")
             }
             if observation.sizeKnown {
                 guard let quantity = observation.decimalQuantity, quantity > 0,
@@ -325,8 +348,13 @@ enum BackupService {
         }
     }
 
+    private static func validCurrency(_ code: String) -> Bool {
+        Locale.commonISOCurrencyCodes.contains(code)
+    }
+
     @MainActor
     static func plan(backup: BackupFile, context: ModelContext) throws -> MergePlan {
+        try validate(backup)
         let existingProducts = try context.fetch(FetchDescriptor<Product>())
         let existingStores = try context.fetch(FetchDescriptor<StoreLocation>())
         let existingObservations = try context.fetch(FetchDescriptor<PriceObservation>())
@@ -381,6 +409,7 @@ enum BackupService {
         choices: [UUID: ConflictChoice],
         context: ModelContext
     ) throws -> ImportResult {
+        try validate(plan.backup)
         let productMap = Dictionary(uniqueKeysWithValues: try context.fetch(FetchDescriptor<Product>()).map { ($0.id, $0) })
         let storeMap = Dictionary(uniqueKeysWithValues: try context.fetch(FetchDescriptor<StoreLocation>()).map { ($0.id, $0) })
         let observationMap = Dictionary(uniqueKeysWithValues: try context.fetch(FetchDescriptor<PriceObservation>()).map { ($0.id, $0) })
@@ -388,82 +417,86 @@ enum BackupService {
         var products = productMap
         var stores = storeMap
 
-        for product in plan.backup.products where products[product.id] == nil {
-            let created = Product(
-                id: product.id,
-                name: product.name,
-                brand: product.brand,
-                variety: product.variety,
-                isFavorite: product.isFavorite,
-                isArchived: product.isArchived,
-                archivedAt: product.archivedAt,
-                createdAt: product.createdAt
-            )
-            context.insert(created)
-            products[product.id] = created
-        }
-
-        for store in plan.backup.stores where stores[store.id] == nil {
-            let created = StoreLocation(
-                id: store.id,
-                name: store.name,
-                branch: store.branch,
-                city: store.city,
-                note: store.note,
-                isArchived: store.isArchived,
-                archivedAt: store.archivedAt,
-                createdAt: store.createdAt
-            )
-            context.insert(created)
-            stores[store.id] = created
-        }
-
-        for backup in plan.backup.observations where observationMap[backup.id] == nil {
-            guard let product = products[backup.productID], let store = stores[backup.storeID] else {
-                throw BackupError(message: "An observation refers to a missing product or store.")
+        do {
+            for product in plan.backup.products where products[product.id] == nil {
+                let created = Product(
+                    id: product.id,
+                    name: product.name,
+                    brand: product.brand,
+                    variety: product.variety,
+                    isFavorite: product.isFavorite,
+                    isArchived: product.isArchived,
+                    archivedAt: product.archivedAt,
+                    createdAt: product.createdAt
+                )
+                context.insert(created)
+                products[product.id] = created
             }
-            if let created = makeObservation(from: backup, product: product, store: store) {
+
+            for store in plan.backup.stores where stores[store.id] == nil {
+                let created = StoreLocation(
+                    id: store.id,
+                    name: store.name,
+                    branch: store.branch,
+                    city: store.city,
+                    note: store.note,
+                    isArchived: store.isArchived,
+                    archivedAt: store.archivedAt,
+                    createdAt: store.createdAt
+                )
+                context.insert(created)
+                stores[store.id] = created
+            }
+
+            for backup in plan.backup.observations where observationMap[backup.id] == nil {
+                guard let product = products[backup.productID], let store = stores[backup.storeID] else {
+                    throw BackupError(message: "An observation refers to a missing product or store.")
+                }
+                guard let created = makeObservation(from: backup, product: product, store: store) else {
+                    throw BackupError(message: "The backup contains an observation that cannot be restored.")
+                }
                 context.insert(created)
             }
-        }
 
-        var keptCurrent = 0
-        for conflict in plan.conflicts {
-            guard let existing = observationMap[conflict.id] else { continue }
-            switch choices[conflict.id] ?? .current {
-            case .current:
-                keptCurrent += 1
-            case .backup:
-                update(existing, from: conflict.backup)
+            var keptCurrent = 0
+            for conflict in plan.conflicts {
+                guard let existing = observationMap[conflict.id] else { continue }
+                switch choices[conflict.id] ?? .current {
+                case .current:
+                    keptCurrent += 1
+                case .backup:
+                    guard let product = products[conflict.backup.productID],
+                          let store = stores[conflict.backup.storeID] else {
+                        throw BackupError(message: "An observation refers to a missing product or store.")
+                    }
+                    update(existing, from: conflict.backup)
+                    existing.product = product
+                    existing.store = store
+                }
             }
-        }
 
-        do {
             try context.save()
+
+            return ImportResult(
+                title: "Your journal was merged",
+                summary: "\(plan.newObservations) observations added",
+                addedObservations: plan.newObservations,
+                skippedObservations: plan.identical,
+                keptCurrent: keptCurrent,
+                products: products.count,
+                stores: stores.count,
+                observations: observationMap.count + plan.newObservations,
+                isReplacement: false
+            )
         } catch {
             context.rollback()
             throw BackupError(message: "The journal could not be merged. No changes were kept.")
         }
-
-        let productsCount = try context.fetchCount(FetchDescriptor<Product>())
-        let storesCount = try context.fetchCount(FetchDescriptor<StoreLocation>())
-        let observationsCount = try context.fetchCount(FetchDescriptor<PriceObservation>())
-
-        return ImportResult(
-            title: "Your journal was merged",
-            summary: "\(plan.newObservations) observations added",
-            addedObservations: plan.newObservations,
-            skippedObservations: plan.identical,
-            keptCurrent: keptCurrent,
-            products: productsCount,
-            stores: storesCount,
-            observations: observationsCount,
-            isReplacement: false
-        )
     }
 
     @MainActor
-    static func replace(with backup: BackupFile, context: ModelContext) throws -> ImportResult {
+    static func replace(with backup: BackupFile, context: ModelContext, defaults: UserDefaults = .standard) throws -> ImportResult {
+        try validate(backup)
         do {
             for observation in try context.fetch(FetchDescriptor<PriceObservation>()) {
                 context.delete(observation)
@@ -514,9 +547,12 @@ enum BackupService {
                 context.insert(created)
             }
 
-            UserDefaults.standard.set(backup.settings.currencyCode, forKey: "currencyCode")
-            UserDefaults.standard.set(backup.settings.defaultSource, forKey: "defaultSource")
             try context.save()
+            defaults.set(backup.settings.currencyCode, forKey: "currencyCode")
+            defaults.set(backup.settings.defaultSource, forKey: "defaultSource")
+            if let language = backup.settings.appLanguage {
+                defaults.set(language, forKey: AppLanguage.storageKey)
+            }
 
             return ImportResult(
                 title: "Backup restored in full",
@@ -574,6 +610,7 @@ enum BackupService {
         observation.price = price
         observation.currencyCode = backup.currencyCode
         observation.observedAt = backup.observedAt
+        observation.createdAt = backup.createdAt
         observation.updatedAt = backup.updatedAt
         observation.packageQuantity = backup.decimalQuantity
         observation.packageUnit = backup.packageUnit.flatMap { MeasurementUnit(rawValue: $0) ?? MeasurementUnit.fromSymbol($0) }
@@ -595,7 +632,8 @@ enum CSVExport {
         let headers = [
             "product", "brand", "variety", "store", "branch", "city", "observed_at",
             "price", "currency", "package_quantity", "package_unit", "unit_price", "unit",
-            "condition", "condition_label", "source", "note", "created_at", "updated_at"
+            "condition", "condition_label", "source", "note", "created_at", "updated_at",
+            "size_known", "is_loose", "multi_buy_minimum", "condition_end_date", "price_basis"
         ]
 
         let formatter = ISO8601DateFormatter()
@@ -624,12 +662,17 @@ enum CSVExport {
                 observation.source.title,
                 observation.note,
                 formatter.string(from: observation.createdAt),
-                formatter.string(from: observation.updatedAt)
+                formatter.string(from: observation.updatedAt),
+                String(observation.sizeKnown),
+                String(observation.isLoose),
+                String(observation.multiBuyMinimum),
+                observation.conditionEndDate.map(formatter.string(from:)) ?? "",
+                observation.condition == .multiBuy ? "total_for_minimum_packages" : (observation.isLoose ? "loose_amount" : "one_package")
             ]
             lines.append(fields.map(escape).joined(separator: ","))
         }
 
-        return (Data(lines.joined(separator: "\r\n").utf8), sorted.count)
+        return (Data(lines.joined(separator: "\r\n").utf8), lines.count - 1)
     }
 
     private static func escape(_ value: String) -> String {

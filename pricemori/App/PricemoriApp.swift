@@ -3,7 +3,7 @@ import SwiftData
 
 @main
 struct PricemoriApp: App {
-    private let container: ModelContainer
+    @State private var container: ModelContainer?
 
     init() {
         AppFont.registerFonts()
@@ -13,26 +13,55 @@ struct PricemoriApp: App {
         if arguments.contains("-reset-language") {
             UserDefaults.standard.set(AppLanguage.english.rawValue, forKey: AppLanguage.storageKey)
         }
+        if arguments.contains("-reset-onboarding") {
+            UserDefaults.standard.set(false, forKey: Onboarding.storageKey)
+        }
+        if arguments.contains("-skip-onboarding") {
+            UserDefaults.standard.set(true, forKey: Onboarding.storageKey)
+        }
         #endif
         let inMemory = arguments.contains("-in-memory")
         let schema = Schema([Product.self, StoreLocation.self, PriceObservation.self])
         let configuration = ModelConfiguration(schema: schema, isStoredInMemoryOnly: inMemory)
 
         do {
-            container = try ModelContainer(for: schema, configurations: [configuration])
+            let created = try ModelContainer(for: schema, configurations: [configuration])
+            _container = State(initialValue: created)
+            SampleData.seedIfRequested(context: created.mainContext)
         } catch {
-            fatalError("Could not create ModelContainer: \(error)")
+            _container = State(initialValue: nil)
         }
 
-        let context = container.mainContext
-        SampleData.seedIfRequested(context: context)
     }
 
     var body: some Scene {
         WindowGroup {
-            RootView()
-                .preferredColorScheme(nil)
+            if let container {
+                RootView()
+                    .preferredColorScheme(testColorScheme)
+                    .modelContainer(container)
+            } else {
+                ContentUnavailableView {
+                    Label("Could not open your journal", systemImage: "externaldrive.badge.exclamationmark")
+                } description: {
+                    Text("Your stored journal has not been deleted. Free some storage and restart the app, or try again.")
+                } actions: {
+                    Button("Try again") { retryOpeningJournal() }
+                }
+            }
         }
-        .modelContainer(container)
+    }
+
+    private var testColorScheme: ColorScheme? {
+        #if DEBUG
+        if ProcessInfo.processInfo.arguments.contains("-dark-mode") { return .dark }
+        #endif
+        return nil
+    }
+
+    private func retryOpeningJournal() {
+        let schema = Schema([Product.self, StoreLocation.self, PriceObservation.self])
+        let configuration = ModelConfiguration(schema: schema, isStoredInMemoryOnly: ProcessInfo.processInfo.arguments.contains("-in-memory"))
+        container = try? ModelContainer(for: schema, configurations: [configuration])
     }
 }

@@ -28,7 +28,7 @@ struct BackupExportView: View {
     }
 
     var body: some View {
-        ScreenScaffold(title: "Backup & export", backLabel: "Back", topPadding: 8) {
+        ScreenScaffold(title: "Backup & export", backLabel: "Back", topPadding: 16) {
             VStack(alignment: .leading, spacing: 0) {
                 InfoText(text: "Your journal is stored on this iPhone. Keep a full backup somewhere you can access later.")
 
@@ -100,19 +100,19 @@ struct ExportJournalView: View {
             defaultFilename: fileName
         ) { result in
             switch result {
-            case .success:
+            case .success(let url):
                 if pendingKind == .fullBackup {
                     UserDefaults.standard.set(Date.now.timeIntervalSince1970, forKey: "lastBackupExport")
                     summary = ExportSummary(
                         kind: .fullBackup,
-                        fileName: fileName,
+                        fileName: url.lastPathComponent,
                         lines: summaryLinesForFullBackup(),
                         info: "Keep the exported file safe. The app cannot check whether you move or delete it later."
                     )
                 } else {
                     summary = ExportSummary(
                         kind: .csv,
-                        fileName: fileName,
+                        fileName: url.lastPathComponent,
                         lines: ["\(csvRows) observation rows", "Includes branch, date, amount, units and conditions"],
                         info: "This CSV is for spreadsheets. Use a full backup to restore products, branches and settings together."
                     )

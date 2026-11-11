@@ -8,7 +8,7 @@ final class PricemoriUITests: XCTestCase {
     @MainActor
     func testRecordNoChangeAndUndo() throws {
         let app = XCUIApplication()
-        app.launchArguments = ["-in-memory", "-seed-sample", "-reset-language"]
+        app.launchArguments = ["-in-memory", "-seed-sample", "-skip-onboarding", "-reset-language"]
         app.launch()
 
         app.buttons.containing(.staticText, identifier: "Buckwheat · Brand X").firstMatch.tap()
@@ -37,7 +37,7 @@ final class PricemoriUITests: XCTestCase {
     @MainActor
     func testAddProductAndFirstPrice() throws {
         let app = XCUIApplication()
-        app.launchArguments = ["-in-memory", "-seed-sample", "-reset-language"]
+        app.launchArguments = ["-in-memory", "-seed-sample", "-skip-onboarding", "-reset-language"]
         app.launch()
 
         app.buttons["+ Add"].tap()
@@ -54,6 +54,8 @@ final class PricemoriUITests: XCTestCase {
         XCTAssertTrue(priceField.waitForExistence(timeout: 5))
         priceField.tap()
         priceField.typeText("100")
+        XCTAssertTrue(app.buttons["keyboard-done"].waitForExistence(timeout: 5))
+        app.buttons["keyboard-done"].tap()
 
         let storeField = app.textFields["SAS"]
         XCTAssertTrue(storeField.waitForExistence(timeout: 5))
@@ -71,7 +73,7 @@ final class PricemoriUITests: XCTestCase {
         app.buttons["Back to Journal"].tap()
 
         XCTAssertTrue(app.staticTexts["Apples"].waitForExistence(timeout: 5))
-        let row = app.staticTexts.containing(NSPredicate(format: "label CONTAINS %@", "100 AMD / 1 kg")).firstMatch
+        let row = app.staticTexts.containing(NSPredicate(format: "label CONTAINS %@", "100 AMD / package")).firstMatch
         XCTAssertTrue(row.waitForExistence(timeout: 5))
     }
 }

@@ -38,14 +38,18 @@ Pricemori is deliberately manual. You decide what is worth tracking. A purchase 
 ### See the history
 
 - A compact price chart on every product, with the latest observation highlighted.
-- Full observation list, point details, corrections, deletion with Undo, and earlier entries.
+- Complete product history across branches, currencies and conditions, plus scoped lists, point details, corrections, deletion with Undo and earlier entries.
+- Package-price charts and ranges stay available when package size is unknown.
+- Correct a mistakenly selected product or branch while preserving the observation’s identity and original date.
 - Price over time, store comparisons, branch histories, period changes, and package-versus-unit charts.
 - Lines connect recorded points only. No daily estimates, forecasts, or made-up values.
 
 ### Keep the data yours
 
 - Products, branches, observations, package sizes, conditions, and notes.
-- Favorites, search, archive, and restore.
+- Favorites, search, and Journal swipe/context shortcuts.
+- Archived products can be inspected and restored from Journal Menu or Settings without losing prices.
+- Permanent product deletion is a separate confirmed action and preserves stores and other products.
 - Full JSON backup, spreadsheet-ready CSV export, validated merge, and safe replacement that requires a safety copy first.
 
 <p align="center">
@@ -133,6 +137,7 @@ The app otherwise starts with an empty journal and the first-run flow.
 xcodebuild test \
   -project pricemori.xcodeproj \
   -scheme pricemori \
+  -testPlan AllTests \
   -destination 'platform=iOS Simulator,name=iPhone 17'
 ```
 
@@ -147,7 +152,8 @@ The suite covers:
 - backup round-trip, merge conflicts, replacement, and version validation,
 - CSV export,
 - first-price and repeat-entry flows, Undo, earlier observations, deletion, archiving, store creation, conditional offers, unknown package sizes, search, favorites, and discard confirmation;
-- visible tap targets of at least 44 points, checked in a UI test;
+- visible tap targets of at least 44 points, accessibility text with non-overlapping headers and visible save controls;
+- persistent user-created package prices across relaunch, wrong-branch correction, empty chart scopes, archive/restore and save/delete/restore/Undo sequences;
 - the six donation products load from the StoreKit test configuration, the donation screen displays the tiers and updates the selected amount, and a test purchase completes into the thank-you state;
 - all 16 language bundles resolve, and switching to German in Settings updates the interface immediately;
 - a 1,000-product / 5,000-observation journal benchmark stays within the stated bounds.

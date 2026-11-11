@@ -6,6 +6,7 @@ struct SettingsView: View {
     @AppStorage("defaultSource") private var defaultSourceRaw = ObservationSource.shelf.rawValue
     @AppStorage(AppLanguage.storageKey) private var appLanguageRaw = AppLanguage.system.rawValue
     @State private var showLanguage = false
+    @State private var showOnboarding = false
 
     private var appLanguage: AppLanguage {
         AppLanguage(rawValue: appLanguageRaw) ?? .system
@@ -16,7 +17,7 @@ struct SettingsView: View {
     }
 
     var body: some View {
-        ScreenScaffold(title: "Settings", backLabel: "Journal", topPadding: 8) {
+        ScreenScaffold(title: "Settings", backLabel: "Journal", topPadding: 16) {
             VStack(alignment: .leading, spacing: 0) {
                 FieldLabel(text: "Preferences")
                     .padding(.top, 6)
@@ -33,6 +34,13 @@ struct SettingsView: View {
                     subtitle: "Currency and observation source"
                 ) {
                     router.push(.entryDefaults)
+                }
+                SeparatorLine()
+                OpenRow(
+                    title: "Show onboarding",
+                    subtitle: "See the introduction from the beginning"
+                ) {
+                    showOnboarding = true
                 }
                 SeparatorLine()
 
@@ -76,6 +84,11 @@ struct SettingsView: View {
         }
         .fullScreenCover(isPresented: $showLanguage) {
             LanguagePickerView(selection: $appLanguageRaw)
+        }
+        .fullScreenCover(isPresented: $showOnboarding) {
+            OnboardingView {
+                showOnboarding = false
+            }
         }
     }
 }
@@ -149,8 +162,10 @@ struct EntryDefaultsView: View {
                                 .foregroundStyle(Theme.secondaryText)
                         }
                         .padding(.horizontal, 14)
-                        .frame(height: 48)
+                        .padding(.vertical, 12)
+                        .frame(minHeight: 48)
                         .overlay { RoundedRectangle(cornerRadius: 10).stroke(Theme.separator) }
+                        .contentShape(Rectangle())
                     }
                 }
 

@@ -4,7 +4,12 @@ import Testing
 @testable import pricemori
 
 @MainActor
+@Suite(.serialized)
 struct PricemoriTests {
+    init() {
+        UserDefaults.standard.set(AppLanguage.english.rawValue, forKey: AppLanguage.storageKey)
+    }
+
     private func date(_ day: Int) -> Date {
         Date(timeIntervalSince1970: 1_760_000_000).addingTimeInterval(Double(day) * 86_400)
     }

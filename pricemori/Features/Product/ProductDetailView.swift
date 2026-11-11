@@ -5,25 +5,42 @@ struct ProductDetailView: View {
     let product: Product
     var backLabel: String = "Journal"
     var isFirstSave: Bool = false
+    var initialStore: StoreLocation?
 
     @EnvironmentObject private var router: AppRouter
     @Environment(\.modelContext) private var context
+    @State private var saveError = false
     @Environment(\.dismiss) private var dismiss
 
     @State private var showEdit = false
+    @State private var leaveAfterEdit = false
     @State private var showRecord = false
     @State private var savedMessage: String?
-    @State private var savedObservation: PriceObservation?
+    @State private var savedObservationID: UUID?
+    @State private var focusedObservationID: UUID?
+    @State private var confirmConditionalRepeat = false
+    @State private var removal: ObservationRemoval?
 
-    init(product: Product, backLabel: String = "Journal", isFirstSave: Bool = false) {
+    init(product: Product, backLabel: String = "Journal", isFirstSave: Bool = false, initialStore: StoreLocation? = nil, savedObservation: PriceObservation? = nil) {
         self.product = product
         self.backLabel = backLabel
         self.isFirstSave = isFirstSave
-        _savedMessage = State(initialValue: isFirstSave ? "First price saved" : nil)
+        self.initialStore = initialStore
+        _savedObservationID = State(initialValue: savedObservation?.id ?? (isFirstSave ? product.latestObservation?.id : nil))
+        _focusedObservationID = State(initialValue: savedObservation?.id)
+        _savedMessage = State(initialValue: savedObservation != nil ? "Price saved" : isFirstSave ? "First price saved" : nil)
     }
 
+    private var savedObservation: PriceObservation? { product.observations.first { $0.id == savedObservationID } }
+    private var focusedObservation: PriceObservation? { product.observations.first { $0.id == focusedObservationID } }
+
     private var primary: PriceObservation? {
-        product.latestRegularObservation
+        let store = focusedObservation?.store ?? initialStore
+        let candidates = product.observations.filter { observation in
+            (store == nil || observation.store?.id == store?.id)
+                && (focusedObservation.map { PriceMath.sameOffer($0, observation) && $0.currencyCode == observation.currencyCode } ?? true)
+        }
+        return candidates.max { PriceMath.isEarlier($0, than: $1) }
     }
 
     private var primaryStore: StoreLocation? {
@@ -34,13 +51,17 @@ struct ProductDetailView: View {
         primary?.currencyCode ?? "AMD"
     }
 
+    private var chartBasis: ChartBasis { .preferred(for: primary) }
+
     private var series: [PriceObservation] {
         guard let primaryStore else { return [] }
         return PriceMath.series(
             for: product,
             store: primaryStore,
-            condition: .regular,
-            currency: currency
+            condition: primary?.condition ?? .regular,
+            currency: currency,
+            reference: primary,
+            includeUnknownSize: chartBasis == .package
         )
     }
 
@@ -50,28 +71,34 @@ struct ProductDetailView: View {
     }
 
     private var otherStores: [StorePrice] {
-        guard let primaryStore else { return [] }
-        return PriceMath.latestPerStore(for: product, condition: .regular, currency: currency)
-            .filter { $0.store.id != primaryStore.id && !$0.store.isArchived }
+        guard let primaryStore, let primary else { return [] }
+        return PriceMath.latestPerStore(for: product, condition: primary.condition, currency: currency)
+            .filter { $0.store.id != primaryStore.id && !$0.store.isArchived && PriceMath.comparable($0.observation, primary) }
             .sorted { ($0.unitPrice ?? 0) < ($1.unitPrice ?? 0) }
     }
 
     private var conditionalObservations: [PriceObservation] {
         Array(product.observations
-            .filter { $0.condition != .regular && !$0.isExpired }
+            .filter { $0.condition != .regular }
             .sortedChronologically
             .reversed())
     }
 
     var body: some View {
-        ScreenScaffold(
+        ScreenScaffold(saveError: $saveError,
             backLabel: backLabel,
-            topPadding: 0,
+            topPadding: 16,
             trailing: {
                 HeaderActionButton(title: "Edit") { showEdit = true }
             },
             footer: {
-                if series.count <= 1, primary != nil {
+                if product.isArchived {
+                    PrimaryButton(title: "Restore product") {
+                        product.isArchived = false
+                        product.archivedAt = nil
+                        _ = context.saveReportingError(&saveError)
+                    }
+                } else if series.count <= 1, primary != nil {
                     PrimaryButton(title: isFirstSave ? "Back to Journal" : "Record a price") {
                         if isFirstSave {
                             dismiss()
@@ -95,9 +122,29 @@ struct ProductDetailView: View {
                         .padding(.top, 4)
                 }
 
-                if let savedMessage {
+                if removal != nil {
+                    SavedBanner(text: "Observation removed") {
+                        removal?.restore(product: product, context: context)
+                        if context.saveReportingError(&saveError) { removal = nil }
+                    }.padding(.top, 14)
+                }
+
+                if let savedMessage, savedObservation != nil {
                     SavedBanner(text: savedMessage, undo: undoLast)
                         .padding(.top, 14)
+                }
+
+                if product.isArchived {
+                    InfoText(text: "Restored products return to the Journal with all their earlier prices.")
+                        .padding(.top, 12)
+                }
+
+                if !product.observations.isEmpty {
+                    OpenRow(title: "All observations", subtitle: L10n.format("%lld recorded prices", product.observations.count)) {
+                        router.push(.allHistory(product))
+                    }
+                    .accessibilityIdentifier("all-product-observations")
+                    .padding(.top, 12)
                 }
 
                 if let primary, let store = primary.store {
@@ -142,23 +189,24 @@ struct ProductDetailView: View {
                         .padding(.top, 12)
                     }
 
-                    if series.count > 1 {
+                    if !product.isArchived, series.count > 1 {
                         PrimaryButton(title: "Record a price") { showRecord = true }
                             .padding(.top, 18)
-                        SecondaryButton(title: "No change · record today", action: recordNoChange)
-                    } else {
-                        SecondaryButton(title: "No change · record today", action: recordNoChange)
+                        SecondaryButton(title: "No change · record today", action: repeatTapped)
+                    } else if !product.isArchived {
+                        SecondaryButton(title: "No change · record today", action: repeatTapped)
                             .padding(.top, 12)
                     }
 
                     SectionTitle(text: "Price history", actionTitle: "History") {
-                        router.push(.history(product, store, .regular))
+                        router.push(.scopedHistory(product, store, primary.condition, primary.currencyCode, primary.id))
                     }
                     .padding(.top, 26)
 
-                    NavigationLink(value: AppRoute.priceOverTime(product, store)) {
-                        PriceChartView(observations: series)
+                    NavigationLink(value: AppRoute.scopedPriceOverTime(product, store, primary.id)) {
+                        PriceChartView(observations: series, basis: chartBasis)
                             .padding(.top, 4)
+                            .contentShape(Rectangle())
                     }
                     .buttonStyle(.plain)
 
@@ -168,6 +216,36 @@ struct ProductDetailView: View {
                         .font(AppFont.inter(13))
                         .foregroundStyle(Theme.secondaryText)
                         .padding(.top, 8)
+
+                    if chartBasis == .package {
+                        InfoText(text: "Package prices include observations with unknown size. Only known compatible sizes appear in the unit-price chart.")
+                            .padding(.top, 6)
+                    }
+
+                    ForEach(Array(product.sortedObservations.suffix(3).reversed())) { observation in
+                        let observationStore = observation.store
+                        NavigationLink {
+                            ObservationDetailView(product: product, observation: observation, backLabel: "Product", onDelete: { snapshot in
+                                if let observationStore { removal = ObservationRemoval(snapshot: snapshot, store: observationStore) }
+                            })
+                        } label: {
+                            HStack(alignment: .top) {
+                                VStack(alignment: .leading, spacing: 4) {
+                                    Text(observation.packagePriceLine).font(AppFont.inter(15, .medium))
+                                    Text("\(Format.timestamp(observation.observedAt)) · \(observation.store?.displayName ?? "")")
+                                        .font(AppFont.inter(13)).foregroundStyle(Theme.secondaryText)
+                                }
+                                Spacer()
+                                Image(systemName: "chevron.right").font(.caption)
+                            }
+                            .foregroundStyle(Theme.primaryText)
+                            .padding(.vertical, 12)
+                            .frame(maxWidth: .infinity, minHeight: 44, alignment: .leading)
+                            .contentShape(Rectangle())
+                        }
+                        .buttonStyle(.plain)
+                        SeparatorLine()
+                    }
 
                     if !otherStores.isEmpty {
                         SectionTitle(text: "Other stores · last known", actionTitle: "Compare stores") {
@@ -184,7 +262,7 @@ struct ProductDetailView: View {
                             }
                         }
 
-                        InfoText(text: "\(currency) · Regular · Prices may have changed")
+                        InfoText(text: L10n.format("%@ · %@ · Prices may have changed", currency, primary.conditionLine))
                             .padding(.top, 6)
                     }
 
@@ -203,17 +281,23 @@ struct ProductDetailView: View {
                         SecondaryButton(title: "Compare stores") {
                             router.push(.compareStores(product))
                         }
-                        SecondaryButton(title: "History") {
-                            router.push(.history(product, store, .regular))
-                        }
                         SecondaryButton(title: "Statistics") {
                             router.push(.statistics(product, store))
                         }
                     }
                     .padding(.top, 16)
                 } else {
-                    PriceEmptyState { showRecord = true }
-                        .padding(.top, 24)
+                    if !product.observations.isEmpty {
+                        InfoText(text: "No observations match this scope. Your saved prices are available in All observations.")
+                            .padding(.top, 24)
+                        SecondaryButton(title: "Statistics") { router.push(.statistics(product, nil)) }
+                        if !product.isArchived {
+                            PrimaryButton(title: "Record a price") { showRecord = true }
+                        }
+                    } else if !product.isArchived {
+                        PriceEmptyState { showRecord = true }
+                            .padding(.top, 24)
+                    }
 
                     if !conditionalObservations.isEmpty {
                         OpenRow(
@@ -227,18 +311,29 @@ struct ProductDetailView: View {
                 }
             }
         }
-        .fullScreenCover(isPresented: $showEdit) {
-            ProductEditView(product: product) {
-                product.isArchived = true
-                product.archivedAt = .now
-                try? context.save()
-                showEdit = false
-                dismiss()
+        .alert("Confirm offer conditions", isPresented: $confirmConditionalRepeat) {
+            Button("Cancel", role: .cancel) {}
+            Button("Record today") { recordNoChange() }
+        } message: {
+            Text("Confirm that the same eligibility and minimum quantity apply today. For a different offer, record a new price.")
+        }
+        .fullScreenCover(isPresented: $showEdit, onDismiss: {
+            if leaveAfterEdit {
+                leaveAfterEdit = false
+                router.reset()
+            }
+        }) {
+            NavigationStack {
+                ProductEditView(product: product) {
+                    leaveAfterEdit = true
+                    showEdit = false
+                }
             }
         }
         .fullScreenCover(isPresented: $showRecord) {
-            RecordPriceView(product: product, initialStore: primaryStore) { observation in
-                savedObservation = observation
+            RecordPriceView(product: product, initialStore: (primaryStore ?? initialStore).flatMap { $0.isArchived ? nil : $0 }, initialObservation: primary) { observation in
+                savedObservationID = observation.id
+                focusedObservationID = observation.id
                 savedMessage = saveFeedback(for: observation)
             }
         }
@@ -260,8 +355,17 @@ struct ProductDetailView: View {
         return L10n.format("Price saved · %@", Format.relativeAge(observation.observedAt))
     }
 
+    private func repeatTapped() {
+        guard let primary, primary.store?.isArchived == false else { showRecord = true; return }
+        if primary.condition != .regular {
+            if primary.isExpired { showRecord = true } else { confirmConditionalRepeat = true }
+        } else {
+            recordNoChange()
+        }
+    }
+
     private func recordNoChange() {
-        guard let primary, let store = primary.store else { return }
+        guard let primary, let store = primary.store, !store.isArchived else { return }
         let observation = PriceObservation(
             price: primary.price,
             currencyCode: primary.currencyCode,
@@ -280,16 +384,17 @@ struct ProductDetailView: View {
             store: store
         )
         context.insert(observation)
-        try? context.save()
-        savedObservation = observation
+        guard context.saveReportingError(&saveError) else { return }
+        savedObservationID = observation.id
         savedMessage = "Recorded today · No change"
     }
 
     private func undoLast() {
         guard let savedObservation else { return }
         context.delete(savedObservation)
-        try? context.save()
-        self.savedObservation = nil
+        guard context.saveReportingError(&saveError) else { return }
+        self.savedObservationID = nil
+        focusedObservationID = nil
         savedMessage = nil
     }
 }
@@ -344,20 +449,25 @@ struct ProductEditView: View {
 
     @Environment(\.dismiss) private var dismiss
     @Environment(\.modelContext) private var context
+    @State private var saveError = false
 
     @State private var name = ""
     @State private var brand = ""
     @State private var variety = ""
     @State private var isFavorite = false
     @State private var showArchiveAlert = false
+    @State private var showDeleteAlert = false
+    @State private var confirmDiscard = false
     @State private var showValidation = false
 
     var body: some View {
-        ScreenScaffold(
+        ScreenScaffold(saveError: $saveError,
             title: "Edit product",
             backLabel: "Cancel",
             showsBackChevron: false,
-            backAction: { dismiss() },
+            backAction: {
+                if hasChanges { confirmDiscard = true } else { dismiss() }
+            },
             footer: {
                 PrimaryButton(title: "Save product") { save() }
             }
@@ -401,16 +511,43 @@ struct ProductEditView: View {
 
                 InfoText(text: "Correct labels here. A different brand or variety needs a separate product. Saved package sizes stay unchanged.")
 
-                SecondaryButton(title: "Archive product…", color: Theme.error) {
-                    showArchiveAlert = true
+                SecondaryButton(title: product.isArchived ? "Restore product" : "Archive product…") {
+                    if product.isArchived {
+                        product.isArchived = false
+                        product.archivedAt = nil
+                        guard context.saveReportingError(&saveError) else { return }
+                        dismiss()
+                    } else {
+                        showArchiveAlert = true
+                    }
                 }
                 .padding(.top, 12)
                 .alert("Stop tracking this product?", isPresented: $showArchiveAlert) {
                     Button("Keep tracking", role: .cancel) {}
-                    Button("Archive", role: .destructive, action: onArchive)
+                    Button("Archive", role: .destructive) {
+                        product.isArchived = true
+                        product.archivedAt = .now
+                        guard context.saveReportingError(&saveError) else { return }
+                        onArchive()
+                    }
                 } message: {
-                    Text("It will leave the active Journal and entry pickers. Its history, statistics and backup data will be kept.")
+                    Text(L10n.string("It will leave the active Journal and entry pickers. Its history, statistics and backup data will be kept.") + "\n" + L10n.string("Its history is kept. Restore it from Archived products."))
                 }
+                SecondaryButton(title: "Delete product…", color: Theme.error) { showDeleteAlert = true }
+                    .alert("Delete product permanently?", isPresented: $showDeleteAlert) {
+                        Button("Cancel", role: .cancel) {}
+                        Button("Delete product", role: .destructive) {
+                            context.delete(product)
+                            guard context.saveReportingError(&saveError) else { return }
+                            onArchive()
+                        }
+                    } message: {
+                        Text(L10n.format("Delete %@ and all %lld recorded prices? This cannot be undone.", product.name, product.observations.count) + "\n" + L10n.string("Archive it instead to keep its history."))
+                    }
+            }
+            .alert("Discard changes?", isPresented: $confirmDiscard) {
+                Button("Keep editing", role: .cancel) {}
+                Button("Discard draft", role: .destructive) { dismiss() }
             }
             .onAppear {
                 name = product.name
@@ -419,6 +556,10 @@ struct ProductEditView: View {
                 isFavorite = product.isFavorite
             }
         }
+    }
+
+    private var hasChanges: Bool {
+        name != product.name || brand != product.brand || variety != product.variety || isFavorite != product.isFavorite
     }
 
     private func save() {
@@ -430,7 +571,7 @@ struct ProductEditView: View {
         product.brand = brand.trimmingCharacters(in: .whitespaces)
         product.variety = variety.trimmingCharacters(in: .whitespaces)
         product.isFavorite = isFavorite
-        try? context.save()
+        guard context.saveReportingError(&saveError) else { return }
         dismiss()
     }
 }

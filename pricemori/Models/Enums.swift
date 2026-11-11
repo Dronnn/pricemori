@@ -38,7 +38,7 @@ enum MeasurementUnit: String, Codable, CaseIterable, Identifiable {
         case .kilogram, .liter: 1
         case .milliliter: Decimal(string: "0.001")!
         case .item: 1
-        case .pair: 2
+        case .pair: 1
         case .loaf: 1
         }
     }

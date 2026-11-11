@@ -50,19 +50,33 @@ enum PriceMath {
         return left.0 < right.0
     }
 
-    static func comparable(_ lhs: PriceObservation, _ rhs: PriceObservation) -> Bool {
-        guard lhs.currencyCode == rhs.currencyCode else { return false }
+    static func sameConditions(_ lhs: PriceObservation, _ rhs: PriceObservation) -> Bool {
         guard lhs.condition == rhs.condition else { return false }
         if lhs.condition == .card {
-            let leftLabel = lhs.conditionLabel.trimmingCharacters(in: .whitespaces).lowercased()
-            let rightLabel = rhs.conditionLabel.trimmingCharacters(in: .whitespaces).lowercased()
+            let leftLabel = lhs.conditionLabel.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+            let rightLabel = rhs.conditionLabel.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
             guard leftLabel == rightLabel else { return false }
         }
+        if lhs.condition == .multiBuy, lhs.multiBuyMinimum != rhs.multiBuyMinimum { return false }
+        return true
+    }
+
+    static func compatibleUnits(_ lhs: PriceObservation, _ rhs: PriceObservation) -> Bool {
         guard let leftUnit = lhs.packageUnit, let rightUnit = rhs.packageUnit else { return false }
         guard leftUnit.dimension == rightUnit.dimension else { return false }
         if leftUnit.dimension == .count, leftUnit != rightUnit { return false }
-        guard lhs.unitPrice != nil, rhs.unitPrice != nil else { return false }
         return true
+    }
+
+    static func sameOffer(_ lhs: PriceObservation, _ rhs: PriceObservation) -> Bool {
+        sameConditions(lhs, rhs)
+    }
+
+    static func comparable(_ lhs: PriceObservation, _ rhs: PriceObservation) -> Bool {
+        lhs.currencyCode == rhs.currencyCode
+            && sameConditions(lhs, rhs)
+            && compatibleUnits(lhs, rhs)
+            && lhs.unitPrice != nil && rhs.unitPrice != nil
     }
 
     static func previousComparable(for observation: PriceObservation, among observations: [PriceObservation]) -> PriceObservation? {
@@ -122,6 +136,13 @@ enum PriceMath {
             .max { isEarlier($0, than: $1) }
     }
 
+    /// One known unit basis shared by every branch in a cross-store comparison.
+    static func crossStoreReference(for product: Product, currency: String? = nil) -> PriceObservation? {
+        let active = product.regularObservations.filter { $0.store?.isArchived == false }
+        let selectedCurrency = currency ?? active.last?.currencyCode
+        return active.last { $0.currencyCode == selectedCurrency && $0.unitPrice != nil }
+    }
+
     static func latestPerStore(
         for product: Product,
         condition: ObservationCondition = .regular,
@@ -142,7 +163,7 @@ enum PriceMath {
         return result.values.sorted { lhs, rhs in
             let left = lhs.observation
             let right = rhs.observation
-            if left.unitPrice != nil, right.unitPrice != nil {
+            if sortKey(left) != sortKey(right) {
                 return isEarlier(right, than: left)
             }
             return lhs.store.displayName.localizedCaseInsensitiveCompare(rhs.store.displayName) == .orderedAscending
@@ -154,17 +175,29 @@ enum PriceMath {
         store: StoreLocation,
         condition: ObservationCondition = .regular,
         currency: String? = nil,
-        dimension: UnitDimension? = nil
+        dimension: UnitDimension? = nil,
+        reference: PriceObservation? = nil,
+        includeUnknownSize: Bool = false
     ) -> [PriceObservation] {
-        product.observations
+        let candidates = product.observations
             .filter { observation in
                 observation.store?.id == store.id
                     && observation.condition == condition
                     && (currency == nil || observation.currencyCode == currency)
-                    && observation.unitPrice != nil
-                    && (dimension == nil || observation.packageUnit?.dimension == dimension)
+                    && (dimension == nil || observation.packageUnit?.dimension == dimension || (includeUnknownSize && observation.unitPrice == nil))
             }
             .sorted { isEarlier($0, than: $1) }
+        guard let anchor = reference ?? candidates.last else { return [] }
+        let scoped = candidates.filter {
+            $0.currencyCode == anchor.currencyCode && sameConditions($0, anchor)
+        }
+        // An unknown-size last observation must not erase earlier compatible unit history.
+        let unitAnchor = anchor.unitPrice != nil ? anchor : scoped.last { $0.unitPrice != nil }
+        return scoped.filter { observation in
+            if observation.unitPrice == nil { return includeUnknownSize }
+            guard let unitAnchor else { return false }
+            return comparable(observation, unitAnchor)
+        }
     }
 
     static func dominantDimension(for observations: [PriceObservation]) -> UnitDimension? {
@@ -216,19 +249,15 @@ enum PriceMath {
         let end = calendar.date(byAdding: .day, value: 1, to: calendar.startOfDay(for: to)) ?? to
 
         return products.compactMap { product in
-            var first: PriceObservation?
-            var last: PriceObservation?
-            for observation in product.observations {
-                guard observation.store?.id == store.id,
-                      observation.condition == condition,
-                      observation.currencyCode == currency,
-                      observation.observedAt >= start,
-                      observation.observedAt < end,
-                      observation.unitPrice != nil
-                else { continue }
-                if first == nil || isEarlier(observation, than: first!) { first = observation }
-                if last == nil || isEarlier(last!, than: observation) { last = observation }
-            }
+            let inPeriod = product.observations.filter {
+                $0.store?.id == store.id && $0.condition == condition
+                    && $0.currencyCode == currency && $0.observedAt >= start && $0.observedAt < end
+                    && $0.unitPrice != nil
+            }.sorted { isEarlier($0, than: $1) }
+            guard let anchor = inPeriod.last else { return nil }
+            let comparableObservations = inPeriod.filter { comparable($0, anchor) }
+            let first = comparableObservations.first
+            let last = comparableObservations.last
             guard let first, let last, first.id != last.id,
                   let change = change(current: last, previous: first)
             else { return nil }

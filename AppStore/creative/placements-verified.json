@@ -1,0 +1,34 @@
+{
+  "version": "1.1",
+  "build": "15",
+  "locale": "en-US",
+  "items": {
+    "PRODUCT_PAGE_HEADER_ASSET": {
+      "image": {
+        "id": "e7000019-73b7-8a45-8030-a7b5fec4f120",
+        "state": "PREPARE_FOR_SUBMISSION",
+        "fileName": "header-v2.png",
+        "fileSize": 3164418,
+        "specId": "1eb43b80-e0b7-4d96-bd32-47a42a8c5fed",
+        "stateDetails": null
+      },
+      "localFile": "AppStore/creative/header-v2.png",
+      "placementID": "86400019-73b7-8a45-8f14-380b5a35ab56",
+      "placementGroup": "DEFAULT_PROFILE"
+    },
+    "APP_STORE_SEARCH_RESULTS_ASSET": {
+      "image": {
+        "id": "67400019-73b7-8a45-800a-3ae6af65b919",
+        "state": "PREPARE_FOR_SUBMISSION",
+        "fileName": "search-results-v2.png",
+        "fileSize": 3407531,
+        "specId": "d2ffa3b7-6c55-5cdf-8512-229d92791333",
+        "stateDetails": null
+      },
+      "localFile": "AppStore/creative/search-results-v2.png",
+      "placementID": "00400019-73b7-8a45-8f22-d7421c3fc3a4",
+      "placementGroup": "DEFAULT_PROFILE"
+    }
+  },
+  "submittedForReview": false
+}

@@ -7,6 +7,10 @@ enum ChartBasis: String, CaseIterable, Identifiable {
 
     var id: String { rawValue }
     var title: String { self == .unit ? "Per unit" : "Package price" }
+
+    static func preferred(for observation: PriceObservation?) -> ChartBasis {
+        observation?.unitPrice == nil ? .package : .unit
+    }
 }
 
 enum ChartPeriod: Equatable {
@@ -76,31 +80,25 @@ struct StatisticsView: View {
         _selectedStore = State(initialValue: preferredStore)
     }
 
-    private var currency: String {
-        guard let selectedProduct, let selectedStore else { return "AMD" }
-        return PriceMath.latestObservation(for: selectedProduct, store: selectedStore, condition: .regular)?.currencyCode ?? "AMD"
+    private var reference: PriceObservation? {
+        guard let selectedProduct, let selectedStore else { return nil }
+        return selectedProduct.observations.filter { $0.store?.id == selectedStore.id }
+            .max { PriceMath.isEarlier($0, than: $1) }
     }
 
+    private var currency: String { reference?.currencyCode ?? "" }
+    private var basis: ChartBasis { .preferred(for: reference) }
     private var observations: [PriceObservation] {
-        guard let selectedProduct, let selectedStore else { return [] }
-        return PriceMath.series(for: selectedProduct, store: selectedStore, condition: .regular, currency: currency)
+        guard let selectedProduct, let selectedStore, let reference else { return [] }
+        return PriceMath.series(for: selectedProduct, store: selectedStore, condition: reference.condition,
+                                currency: currency, reference: reference, includeUnknownSize: basis == .package)
     }
-
-    private var range: RecordedRange? {
-        PriceMath.allTimeRange(for: observations)
-    }
-
-    private var periodChange: PriceChange? {
-        guard let first = observations.first, let last = observations.last, first.id != last.id else { return nil }
-        return PriceMath.change(current: last, previous: first)
-    }
-
-    private var unitLabel: String {
-        observations.last?.baseUnitSymbol ?? "kg"
-    }
+    private var range: ClosedRange<Decimal>? { ChartValues.range(observations, basis: basis) }
+    private var periodChange: Decimal? { ChartValues.percentChange(observations, basis: basis) }
+    private var unitLabel: String { basis == .package ? "package" : reference?.baseUnitSymbol ?? "unit" }
 
     var body: some View {
-        ScreenScaffold(title: "Statistics", backLabel: "Journal", topPadding: 0) {
+        ScreenScaffold(title: "Statistics", backLabel: "Back", topPadding: 16) {
             VStack(alignment: .leading, spacing: 0) {
                 Text("How are my prices\nchanging?")
                     .font(AppFont.serif(32))
@@ -113,7 +111,7 @@ struct StatisticsView: View {
                         .foregroundStyle(Theme.primaryText)
                         .padding(.top, 18)
                     HStack(spacing: 6) {
-                        Text("Regular · \(currency) / \(unitLabel)")
+                        Text("\(reference?.conditionLine ?? "") · \(currency) / \(unitLabel)")
                             .font(AppFont.inter(14))
                             .foregroundStyle(Theme.secondaryText)
                         Button(action: { showScope = true }) {
@@ -131,19 +129,24 @@ struct StatisticsView: View {
                         .padding(.top, 18)
                 }
 
-                if !observations.isEmpty {
-                    NavigationLink(value: AppRoute.priceOverTime(selectedProduct!, selectedStore!)) {
-                        PriceChartView(observations: observations, height: 220, showsUnitLabel: true)
+                if !observations.isEmpty, let product = selectedProduct, let store = selectedStore, let reference {
+                    NavigationLink(value: AppRoute.scopedPriceOverTime(product, store, reference.id)) {
+                        PriceChartView(observations: observations, height: 220, showsUnitLabel: true, basis: basis)
                             .padding(.top, 24)
                     }
                     .buttonStyle(.plain)
+                    .accessibilityIdentifier("statistics-price-chart")
+
+                    SecondaryButton(title: "Explore price history") {
+                        router.push(.scopedPriceOverTime(product, store, reference.id))
+                    }
 
                     if let first = observations.first, let last = observations.last, let range {
                         VStack(alignment: .leading, spacing: 4) {
                             if let periodChange {
-                                Text("\(Format.number(range.minimum.unitPrice ?? 0, maxFraction: 2)) to \(Format.number(range.maximum.unitPrice ?? 0, maxFraction: 2)) \(currency) / \(unitLabel) · \(Format.percent(periodChange.percent))")
+                                Text("\(Format.number(range.lowerBound, maxFraction: 2)) to \(Format.number(range.upperBound, maxFraction: 2)) \(currency) / \(unitLabel) · \(Format.percent(periodChange))")
                             } else {
-                                Text("One observation · \(Format.number(last.unitPrice ?? 0, maxFraction: 2)) \(currency) / \(unitLabel)")
+                                Text("One observation · \(Format.number(ChartValues.amount(last, basis: basis) ?? 0, maxFraction: 2)) \(currency) / \(unitLabel)")
                             }
                             Text("\(Format.periodRange(from: first.observedAt, to: last.observedAt)) · \(observations.count) \(observations.count == 1 ? "observation" : "observations")")
                         }
@@ -152,31 +155,45 @@ struct StatisticsView: View {
                         .padding(.top, 12)
                     }
                 } else if selectedProduct != nil, selectedStore != nil {
-                    InfoText(text: "No regular observations at this branch yet.")
+                    InfoText(text: "No recorded prices at this branch yet.")
                         .padding(.top, 24)
                 }
 
                 VStack(spacing: 2) {
-                    SecondaryButton(title: "Where was it cheapest?") {
-                        if let selectedProduct { router.push(.compareStores(selectedProduct)) }
+                    if let selectedProduct {
+                        SecondaryButton(title: "Where was it cheapest?") { router.push(.compareStores(selectedProduct)) }
                     }
                     SecondaryButton(title: "Which products changed most?") {
                         router.push(.periodChanges(selectedStore))
                     }
-                    SecondaryButton(title: "More ways to compare") {
-                        if let selectedProduct { router.push(.moreComparisons(selectedProduct)) }
+                    if let selectedProduct {
+                        SecondaryButton(title: "More ways to compare") { router.push(.moreComparisons(selectedProduct, selectedStore)) }
                     }
                 }
                 .padding(.top, 28)
 
-                InfoText(text: "Tap the chart to explore dates and prices.")
-                    .padding(.top, 20)
+                if !observations.isEmpty {
+                    InfoText(text: "Tap the chart to explore dates and prices.")
+                        .padding(.top, 20)
+                    if basis == .package {
+                        InfoText(text: "Package prices include observations with unknown size. Only known compatible sizes appear in the unit-price chart.")
+                            .padding(.top, 8)
+                    }
+                }
+                if let selectedProduct {
+                    SecondaryButton(title: "All observations") { router.push(.allHistory(selectedProduct)) }
+                    if observations.isEmpty {
+                        SecondaryButton(title: "Change scope") { showScope = true }
+                    }
+                } else {
+                    SecondaryButton(title: "Archived products") { router.push(.archivedProducts) }
+                }
             }
         }
         .onAppear(perform: resolveSelection)
         .fullScreenCover(isPresented: $showScope) {
             StatisticsScopeView(
-                products: products.filter { !$0.isArchived },
+                products: products.filter { !$0.isArchived && !$0.observations.isEmpty },
                 stores: stores.filter { !$0.isArchived },
                 selectedProduct: $selectedProduct,
                 selectedStore: $selectedStore
@@ -189,16 +206,16 @@ struct StatisticsView: View {
         didResolve = true
         if selectedProduct == nil {
             selectedProduct = products
-                .filter { !$0.isArchived && $0.latestRegularObservation != nil }
+                .filter { !$0.isArchived && $0.latestObservation != nil }
                 .sorted { lhs, rhs in
-                    let left = lhs.latestRegularObservation?.observedAt ?? .distantPast
-                    let right = rhs.latestRegularObservation?.observedAt ?? .distantPast
+                    let left = lhs.latestObservation?.observedAt ?? .distantPast
+                    let right = rhs.latestObservation?.observedAt ?? .distantPast
                     return left > right
                 }
                 .first ?? products.first { !$0.isArchived }
         }
         if selectedStore == nil, let selectedProduct {
-            selectedStore = selectedProduct.latestRegularObservation?.store
+            selectedStore = selectedProduct.latestObservation?.store
                 ?? selectedProduct.sortedStores.first
         }
     }
@@ -233,6 +250,7 @@ struct StatisticsScopeView: View {
                     selectedStore = localStore
                     dismiss()
                 }
+                .disabled(localProduct == nil || localStore == nil || !availableStores.contains { $0.id == localStore?.id })
             }
         ) {
             VStack(alignment: .leading, spacing: 24) {
@@ -245,7 +263,7 @@ struct StatisticsScopeView: View {
                             isSelected: localProduct?.id == product.id
                         ) {
                             localProduct = product
-                            localStore = product.latestRegularObservation?.store ?? product.sortedStores.first
+                            localStore = product.sortedObservations.reversed().compactMap(\.store).first { !$0.isArchived }
                         }
                     }
                 }

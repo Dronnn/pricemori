@@ -76,10 +76,10 @@ enum Format {
         return formatter.string(from: date)
     }
 
-    static func time(_ date: Date) -> String {
+    static func time(_ date: Date, includesSeconds: Bool = false) -> String {
         let formatter = DateFormatter()
         formatter.locale = dateLocale
-        formatter.timeStyle = .short
+        formatter.timeStyle = includesSeconds ? .medium : .short
         formatter.dateStyle = .none
         return formatter.string(from: date)
     }
@@ -113,16 +113,29 @@ enum Format {
         return result
     }
 
-    static func decimal(from text: String) -> Decimal? {
-        let normalized = text
-            .trimmingCharacters(in: .whitespacesAndNewlines)
-            .replacingOccurrences(of: " ", with: "")
-            .replacingOccurrences(of: "\u{00A0}", with: "")
-            .replacingOccurrences(of: ",", with: ".")
-        return Decimal(string: normalized, locale: Locale(identifier: "en_US_POSIX"))
+    static func decimal(from text: String, locale: Locale = L10n.formattingLocale) -> Decimal? {
+        let decimalSeparator = locale.decimalSeparator ?? "."
+        let groupingSeparator = locale.groupingSeparator ?? ","
+        var input = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        if groupingSeparator.trimmingCharacters(in: .whitespaces).isEmpty {
+            for space in [" ", "\u{00A0}", "\u{202F}"] {
+                input = input.replacingOccurrences(of: space, with: groupingSeparator)
+            }
+        }
+        let decimalPattern = NSRegularExpression.escapedPattern(for: decimalSeparator)
+        let groupingPattern = NSRegularExpression.escapedPattern(for: groupingSeparator)
+        let integerPattern = "(?:[0-9]+|[0-9]{1,3}(?:\(groupingPattern)[0-9]{3})+)"
+        let pattern = "\\A[+-]?(?:\(integerPattern)(?:\(decimalPattern)[0-9]*)?|\(decimalPattern)[0-9]+)\\z"
+        guard input.range(of: pattern, options: .regularExpression) != nil else { return nil }
+        let normalized = input
+            .replacingOccurrences(of: groupingSeparator, with: "")
+            .replacingOccurrences(of: decimalSeparator, with: ".")
+        guard let value = Decimal(string: normalized, locale: Locale(identifier: "en_US_POSIX")), !value.isNaN else { return nil }
+        return value
     }
 
     nonisolated static func inputText(_ value: Decimal) -> String {
         NSDecimalNumber(decimal: value).stringValue
+            .replacingOccurrences(of: ".", with: L10n.formattingLocale.decimalSeparator ?? ".")
     }
 }

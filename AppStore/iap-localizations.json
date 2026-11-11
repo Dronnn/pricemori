@@ -1,0 +1,446 @@
+{
+  "com.mrmaier.pricemori.tip.extraordinary": {
+    "en-US": {
+      "name": "Extraordinary tip",
+      "description": "Optional tip. No features are unlocked."
+    },
+    "de-DE": {
+      "name": "Außergewöhnliches Trinkgeld",
+      "description": "Optional. Schaltet keine Funktionen frei."
+    },
+    "es-ES": {
+      "name": "Propina extraordinaria",
+      "description": "Opcional. No desbloquea funciones."
+    },
+    "es-MX": {
+      "name": "Propina extraordinaria",
+      "description": "Opcional. No desbloquea funciones."
+    },
+    "fr-FR": {
+      "name": "Pourboire exceptionnel",
+      "description": "Facultatif. Ne débloque aucune fonction."
+    },
+    "fr-CA": {
+      "name": "Pourboire exceptionnel",
+      "description": "Facultatif. Ne débloque aucune fonction."
+    },
+    "id": {
+      "name": "Donasi istimewa",
+      "description": "Tip opsional. Tidak membuka fitur."
+    },
+    "it": {
+      "name": "Offerta speciale",
+      "description": "Mancia facoltativa, senza funzioni extra."
+    },
+    "ja": {
+      "name": "特別な投げ銭",
+      "description": "任意のチップ。機能追加なし。"
+    },
+    "ko": {
+      "name": "특별 후원",
+      "description": "선택형 팁. 기능 추가 없음."
+    },
+    "nl-NL": {
+      "name": "Extra donatie",
+      "description": "Optioneel. Ontgrendelt geen functies."
+    },
+    "pl": {
+      "name": "Wyjątkowy napiwek",
+      "description": "Dobrowolny napiwek. Bez dodatkowych funkcji."
+    },
+    "pt-BR": {
+      "name": "Gorjeta extraordinária",
+      "description": "Opcional. Não desbloqueia funções."
+    },
+    "ru": {
+      "name": "Особый донат",
+      "description": "Добровольно. Не открывает функций."
+    },
+    "tr": {
+      "name": "Özel bağış",
+      "description": "İsteğe bağlı. Ek özellik sağlamaz."
+    },
+    "uk": {
+      "name": "Особливий донат",
+      "description": "Добровільно. Не відкриває функцій."
+    },
+    "vi": {
+      "name": "Ủng hộ đặc biệt",
+      "description": "Ủng hộ tùy chọn. Không mở khóa tính năng."
+    },
+    "zh-Hans": {
+      "name": "特别打赏",
+      "description": "可选打赏，不解锁功能。"
+    }
+  },
+  "com.mrmaier.pricemori.tip.generous": {
+    "en-US": {
+      "name": "Generous tip",
+      "description": "Optional tip. No features are unlocked."
+    },
+    "de-DE": {
+      "name": "Großzügiges Trinkgeld",
+      "description": "Optional. Schaltet keine Funktionen frei."
+    },
+    "es-ES": {
+      "name": "Propina generosa",
+      "description": "Opcional. No desbloquea funciones."
+    },
+    "es-MX": {
+      "name": "Propina generosa",
+      "description": "Opcional. No desbloquea funciones."
+    },
+    "fr-FR": {
+      "name": "Pourboire généreux",
+      "description": "Facultatif. Ne débloque aucune fonction."
+    },
+    "fr-CA": {
+      "name": "Pourboire généreux",
+      "description": "Facultatif. Ne débloque aucune fonction."
+    },
+    "id": {
+      "name": "Donasi murah hati",
+      "description": "Tip opsional. Tidak membuka fitur."
+    },
+    "it": {
+      "name": "Offerta generosa",
+      "description": "Mancia facoltativa, senza funzioni extra."
+    },
+    "ja": {
+      "name": "太っ腹な投げ銭",
+      "description": "任意のチップ。機能追加なし。"
+    },
+    "ko": {
+      "name": "넉넉한 후원",
+      "description": "선택형 팁. 기능 추가 없음."
+    },
+    "nl-NL": {
+      "name": "Royale donatie",
+      "description": "Optioneel. Ontgrendelt geen functies."
+    },
+    "pl": {
+      "name": "Hojny napiwek",
+      "description": "Dobrowolny napiwek. Bez dodatkowych funkcji."
+    },
+    "pt-BR": {
+      "name": "Gorjeta generosa",
+      "description": "Opcional. Não desbloqueia funções."
+    },
+    "ru": {
+      "name": "Щедрый донат",
+      "description": "Добровольно. Не открывает функций."
+    },
+    "tr": {
+      "name": "Cömert bağış",
+      "description": "İsteğe bağlı. Ek özellik sağlamaz."
+    },
+    "uk": {
+      "name": "Щедрий донат",
+      "description": "Добровільно. Не відкриває функцій."
+    },
+    "vi": {
+      "name": "Ủng hộ hào phóng",
+      "description": "Ủng hộ tùy chọn. Không mở khóa tính năng."
+    },
+    "zh-Hans": {
+      "name": "慷慨打赏",
+      "description": "可选打赏，不解锁功能。"
+    }
+  },
+  "com.mrmaier.pricemori.tip.large": {
+    "en-US": {
+      "name": "Large tip",
+      "description": "Optional tip. No features are unlocked."
+    },
+    "de-DE": {
+      "name": "Großes Trinkgeld",
+      "description": "Optional. Schaltet keine Funktionen frei."
+    },
+    "es-ES": {
+      "name": "Propina grande",
+      "description": "Opcional. No desbloquea funciones."
+    },
+    "es-MX": {
+      "name": "Propina grande",
+      "description": "Opcional. No desbloquea funciones."
+    },
+    "fr-FR": {
+      "name": "Gros pourboire",
+      "description": "Facultatif. Ne débloque aucune fonction."
+    },
+    "fr-CA": {
+      "name": "Gros pourboire",
+      "description": "Facultatif. Ne débloque aucune fonction."
+    },
+    "id": {
+      "name": "Donasi besar",
+      "description": "Tip opsional. Tidak membuka fitur."
+    },
+    "it": {
+      "name": "Offerta grande",
+      "description": "Mancia facoltativa, senza funzioni extra."
+    },
+    "ja": {
+      "name": "大きな投げ銭",
+      "description": "任意のチップ。機能追加なし。"
+    },
+    "ko": {
+      "name": "큰 후원",
+      "description": "선택형 팁. 기능 추가 없음."
+    },
+    "nl-NL": {
+      "name": "Grote donatie",
+      "description": "Optioneel. Ontgrendelt geen functies."
+    },
+    "pl": {
+      "name": "Duży napiwek",
+      "description": "Dobrowolny napiwek. Bez dodatkowych funkcji."
+    },
+    "pt-BR": {
+      "name": "Gorjeta grande",
+      "description": "Opcional. Não desbloqueia funções."
+    },
+    "ru": {
+      "name": "Крупный донат",
+      "description": "Добровольно. Не открывает функций."
+    },
+    "tr": {
+      "name": "Büyük bağış",
+      "description": "İsteğe bağlı. Ek özellik sağlamaz."
+    },
+    "uk": {
+      "name": "Великий донат",
+      "description": "Добровільно. Не відкриває функцій."
+    },
+    "vi": {
+      "name": "Ủng hộ lớn",
+      "description": "Ủng hộ tùy chọn. Không mở khóa tính năng."
+    },
+    "zh-Hans": {
+      "name": "大额打赏",
+      "description": "可选打赏，不解锁功能。"
+    }
+  },
+  "com.mrmaier.pricemori.tip.medium": {
+    "en-US": {
+      "name": "Medium tip",
+      "description": "Optional tip. No features are unlocked."
+    },
+    "de-DE": {
+      "name": "Mittleres Trinkgeld",
+      "description": "Optional. Schaltet keine Funktionen frei."
+    },
+    "es-ES": {
+      "name": "Propina media",
+      "description": "Opcional. No desbloquea funciones."
+    },
+    "es-MX": {
+      "name": "Propina media",
+      "description": "Opcional. No desbloquea funciones."
+    },
+    "fr-FR": {
+      "name": "Pourboire moyen",
+      "description": "Facultatif. Ne débloque aucune fonction."
+    },
+    "fr-CA": {
+      "name": "Pourboire moyen",
+      "description": "Facultatif. Ne débloque aucune fonction."
+    },
+    "id": {
+      "name": "Donasi sedang",
+      "description": "Tip opsional. Tidak membuka fitur."
+    },
+    "it": {
+      "name": "Offerta media",
+      "description": "Mancia facoltativa, senza funzioni extra."
+    },
+    "ja": {
+      "name": "中くらいの投げ銭",
+      "description": "任意のチップ。機能追加なし。"
+    },
+    "ko": {
+      "name": "중간 후원",
+      "description": "선택형 팁. 기능 추가 없음."
+    },
+    "nl-NL": {
+      "name": "Middelgrote donatie",
+      "description": "Optioneel. Ontgrendelt geen functies."
+    },
+    "pl": {
+      "name": "Średni napiwek",
+      "description": "Dobrowolny napiwek. Bez dodatkowych funkcji."
+    },
+    "pt-BR": {
+      "name": "Gorjeta média",
+      "description": "Opcional. Não desbloqueia funções."
+    },
+    "ru": {
+      "name": "Средний донат",
+      "description": "Добровольно. Не открывает функций."
+    },
+    "tr": {
+      "name": "Orta bağış",
+      "description": "İsteğe bağlı. Ek özellik sağlamaz."
+    },
+    "uk": {
+      "name": "Середній донат",
+      "description": "Добровільно. Не відкриває функцій."
+    },
+    "vi": {
+      "name": "Ủng hộ vừa",
+      "description": "Ủng hộ tùy chọn. Không mở khóa tính năng."
+    },
+    "zh-Hans": {
+      "name": "中等打赏",
+      "description": "可选打赏，不解锁功能。"
+    }
+  },
+  "com.mrmaier.pricemori.tip.patron": {
+    "en-US": {
+      "name": "Patron tip",
+      "description": "Optional tip. No features are unlocked."
+    },
+    "de-DE": {
+      "name": "Förderer-Trinkgeld",
+      "description": "Optional. Schaltet keine Funktionen frei."
+    },
+    "es-ES": {
+      "name": "Propina de mecenas",
+      "description": "Opcional. No desbloquea funciones."
+    },
+    "es-MX": {
+      "name": "Propina de mecenas",
+      "description": "Opcional. No desbloquea funciones."
+    },
+    "fr-FR": {
+      "name": "Pourboire mécène",
+      "description": "Facultatif. Ne débloque aucune fonction."
+    },
+    "fr-CA": {
+      "name": "Pourboire mécène",
+      "description": "Facultatif. Ne débloque aucune fonction."
+    },
+    "id": {
+      "name": "Donasi pendukung",
+      "description": "Tip opsional. Tidak membuka fitur."
+    },
+    "it": {
+      "name": "Offerta sostenitore",
+      "description": "Mancia facoltativa, senza funzioni extra."
+    },
+    "ja": {
+      "name": "支援の投げ銭",
+      "description": "任意のチップ。機能追加なし。"
+    },
+    "ko": {
+      "name": "후원 팁",
+      "description": "선택형 팁. 기능 추가 없음."
+    },
+    "nl-NL": {
+      "name": "Supportersdonatie",
+      "description": "Optioneel. Ontgrendelt geen functies."
+    },
+    "pl": {
+      "name": "Napiwek patrona",
+      "description": "Dobrowolny napiwek. Bez dodatkowych funkcji."
+    },
+    "pt-BR": {
+      "name": "Gorjeta de mecenas",
+      "description": "Opcional. Não desbloqueia funções."
+    },
+    "ru": {
+      "name": "Донат мецената",
+      "description": "Добровольно. Не открывает функций."
+    },
+    "tr": {
+      "name": "Destekçi bağışı",
+      "description": "İsteğe bağlı. Ek özellik sağlamaz."
+    },
+    "uk": {
+      "name": "Донат мецената",
+      "description": "Добровільно. Не відкриває функцій."
+    },
+    "vi": {
+      "name": "Ủng hộ",
+      "description": "Ủng hộ tùy chọn. Không mở khóa tính năng."
+    },
+    "zh-Hans": {
+      "name": "赞助打赏",
+      "description": "可选打赏，不解锁功能。"
+    }
+  },
+  "com.mrmaier.pricemori.tip.small": {
+    "en-US": {
+      "name": "Small tip",
+      "description": "Optional tip. No features are unlocked."
+    },
+    "de-DE": {
+      "name": "Kleines Trinkgeld",
+      "description": "Optional. Schaltet keine Funktionen frei."
+    },
+    "es-ES": {
+      "name": "Propina pequeña",
+      "description": "Opcional. No desbloquea funciones."
+    },
+    "es-MX": {
+      "name": "Propina pequeña",
+      "description": "Opcional. No desbloquea funciones."
+    },
+    "fr-FR": {
+      "name": "Petit pourboire",
+      "description": "Facultatif. Ne débloque aucune fonction."
+    },
+    "fr-CA": {
+      "name": "Petit pourboire",
+      "description": "Facultatif. Ne débloque aucune fonction."
+    },
+    "id": {
+      "name": "Donasi kecil",
+      "description": "Tip opsional. Tidak membuka fitur."
+    },
+    "it": {
+      "name": "Offerta piccola",
+      "description": "Mancia facoltativa, senza funzioni extra."
+    },
+    "ja": {
+      "name": "小さな投げ銭",
+      "description": "任意のチップ。機能追加なし。"
+    },
+    "ko": {
+      "name": "작은 후원",
+      "description": "선택형 팁. 기능 추가 없음."
+    },
+    "nl-NL": {
+      "name": "Kleine donatie",
+      "description": "Optioneel. Ontgrendelt geen functies."
+    },
+    "pl": {
+      "name": "Mały napiwek",
+      "description": "Dobrowolny napiwek. Bez dodatkowych funkcji."
+    },
+    "pt-BR": {
+      "name": "Gorjeta pequena",
+      "description": "Opcional. Não desbloqueia funções."
+    },
+    "ru": {
+      "name": "Небольшой донат",
+      "description": "Добровольно. Не открывает функций."
+    },
+    "tr": {
+      "name": "Küçük bağış",
+      "description": "İsteğe bağlı. Ek özellik sağlamaz."
+    },
+    "uk": {
+      "name": "Малий донат",
+      "description": "Добровільно. Не відкриває функцій."
+    },
+    "vi": {
+      "name": "Ủng hộ nhỏ",
+      "description": "Ủng hộ tùy chọn. Không mở khóa tính năng."
+    },
+    "zh-Hans": {
+      "name": "小额打赏",
+      "description": "可选打赏，不解锁功能。"
+    }
+  }
+}
